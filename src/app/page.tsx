@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Package,
   ArrowDownCircle,
@@ -30,6 +31,7 @@ import {
   DollarSign,
   Loader2,
   ShoppingCart,
+  XCircle,
 } from 'lucide-react'
 
 // ==================== Types ====================
@@ -64,6 +66,21 @@ interface NotaSaida {
   observacao: string | null
   createdAt: string
   produto: { nome: string }
+}
+
+interface ItemLoteEntrada {
+  _tempId: number
+  produtoId: string
+  quantidade: string
+  preco: string
+  observacao: string
+}
+
+interface ItemLoteSaida {
+  _tempId: number
+  produtoId: string
+  quantidade: string
+  observacao: string
 }
 
 // ==================== Helpers ====================
@@ -125,6 +142,20 @@ export default function Home() {
   const [saidaData, setSaidaData] = useState(getTodayISO())
   const [saidaObservacao, setSaidaObservacao] = useState('')
 
+  // Batch Entrada form
+  const [dialogEntradaLoteOpen, setDialogEntradaLoteOpen] = useState(false)
+  const [loteEntradaItens, setLoteEntradaItens] = useState<ItemLoteEntrada[]>([])
+  const [loteEntradaData, setLoteEntradaData] = useState(getTodayISO())
+  const [loteEntradaRef, setLoteEntradaRef] = useState('')
+  const [loteEntradaObs, setLoteEntradaObs] = useState('')
+
+  // Batch Saida form
+  const [dialogSaidaLoteOpen, setDialogSaidaLoteOpen] = useState(false)
+  const [loteSaidaItens, setLoteSaidaItens] = useState<ItemLoteSaida[]>([])
+  const [loteSaidaData, setLoteSaidaData] = useState(getTodayISO())
+  const [loteSaidaRef, setLoteSaidaRef] = useState('')
+  const [loteSaidaObs, setLoteSaidaObs] = useState('')
+
   // ==================== Fetch Functions ====================
 
   const fetchProdutos = useCallback(async () => {
@@ -178,6 +209,163 @@ export default function Home() {
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
+
+  // ==================== Batch (Lote) Entrada / Saída ====================
+
+  let nextTempId = 1
+
+  const openEntradaLote = () => {
+    nextTempId = 1
+    setLoteEntradaItens([{ _tempId: nextTempId++, produtoId: '', quantidade: '', preco: '', observacao: '' }])
+    setLoteEntradaData(getTodayISO())
+    setLoteEntradaRef('')
+    setLoteEntradaObs('')
+    setDialogEntradaLoteOpen(true)
+  }
+
+  const openSaidaLote = () => {
+    nextTempId = 1
+    setLoteSaidaItens([{ _tempId: nextTempId++, produtoId: '', quantidade: '', observacao: '' }])
+    setLoteSaidaData(getTodayISO())
+    setLoteSaidaRef('')
+    setLoteSaidaObs('')
+    setDialogSaidaLoteOpen(true)
+  }
+
+  const addEntradaLoteItem = () => {
+    setLoteEntradaItens(prev => [...prev, { _tempId: nextTempId++, produtoId: '', quantidade: '', preco: '', observacao: '' }])
+  }
+
+  const removeEntradaLoteItem = (tempId: number) => {
+    setLoteEntradaItens(prev => prev.filter(i => i._tempId !== tempId))
+  }
+
+  const updateEntradaLoteItem = (tempId: number, field: keyof ItemLoteEntrada, value: string) => {
+    setLoteEntradaItens(prev => prev.map(i => i._tempId === tempId ? { ...i, [field]: value } : i))
+  }
+
+  const addSaidaLoteItem = () => {
+    setLoteSaidaItens(prev => [...prev, { _tempId: nextTempId++, produtoId: '', quantidade: '', observacao: '' }])
+  }
+
+  const removeSaidaLoteItem = (tempId: number) => {
+    setLoteSaidaItens(prev => prev.filter(i => i._tempId !== tempId))
+  }
+
+  const updateSaidaLoteItem = (tempId: number, field: keyof ItemLoteSaida, value: string) => {
+    setLoteSaidaItens(prev => prev.map(i => i._tempId === tempId ? { ...i, [field]: value } : i))
+  }
+
+  const handleSubmitEntradaLote = async () => {
+    if (loteEntradaItens.length === 0) {
+      toast({ title: 'Sem itens', description: 'Adicione pelo menos um item ao lote.', variant: 'destructive' })
+      return
+    }
+    for (const item of loteEntradaItens) {
+      if (!item.produtoId) {
+        toast({ title: 'Campo obrigatório', description: 'Selecione um produto para todos os itens.', variant: 'destructive' })
+        return
+      }
+      if (!Number(item.quantidade) || Number(item.quantidade) <= 0) {
+        toast({ title: 'Valor inválido', description: 'Informe uma quantidade válida maior que zero para todos os itens.', variant: 'destructive' })
+        return
+      }
+      if (isNaN(Number(item.preco)) || Number(item.preco) < 0) {
+        toast({ title: 'Valor inválido', description: 'Informe um preço unitário válido para todos os itens.', variant: 'destructive' })
+        return
+      }
+    }
+    const ids = loteEntradaItens.map(i => i.produtoId)
+    const uniqueIds = new Set(ids)
+    if (uniqueIds.size !== ids.length) {
+      toast({ title: 'Produto duplicado', description: 'Não é possível adicionar o mesmo produto mais de uma vez no mesmo lote.', variant: 'destructive' })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/notas-entrada/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: loteEntradaItens.map(i => ({
+            produtoId: i.produtoId,
+            quantidade: Number(i.quantidade),
+            preco: Number(i.preco),
+            observacao: i.observacao || undefined,
+          })),
+          dataNota: loteEntradaData || undefined,
+          referencia: loteEntradaRef || undefined,
+          observacao: loteEntradaObs || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao registrar lote de entrada')
+      }
+      toast({ title: 'Lote de entrada registrado', description: `${loteEntradaItens.length} item(ns) adicionado(s) ao estoque.` })
+      setDialogEntradaLoteOpen(false)
+      fetchAll()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro inesperado'
+      toast({ title: 'Erro', description: message, variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSubmitSaidaLote = async () => {
+    if (loteSaidaItens.length === 0) {
+      toast({ title: 'Sem itens', description: 'Adicione pelo menos um item ao lote.', variant: 'destructive' })
+      return
+    }
+    for (const item of loteSaidaItens) {
+      if (!item.produtoId) {
+        toast({ title: 'Campo obrigatório', description: 'Selecione um produto para todos os itens.', variant: 'destructive' })
+        return
+      }
+      if (!Number(item.quantidade) || Number(item.quantidade) <= 0) {
+        toast({ title: 'Valor inválido', description: 'Informe uma quantidade válida maior que zero para todos os itens.', variant: 'destructive' })
+        return
+      }
+    }
+    const ids = loteSaidaItens.map(i => i.produtoId)
+    const uniqueIds = new Set(ids)
+    if (uniqueIds.size !== ids.length) {
+      toast({ title: 'Produto duplicado', description: 'Não é possível remover o mesmo produto mais de uma vez no mesmo lote.', variant: 'destructive' })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/notas-saida/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: loteSaidaItens.map(i => ({
+            produtoId: i.produtoId,
+            quantidade: Number(i.quantidade),
+            observacao: i.observacao || undefined,
+          })),
+          dataNota: loteSaidaData || undefined,
+          referencia: loteSaidaRef || undefined,
+          observacao: loteSaidaObs || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao registrar lote de saída')
+      }
+      toast({ title: 'Lote de saída registrado', description: `${loteSaidaItens.length} item(ns) removido(s) do estoque.` })
+      setDialogSaidaLoteOpen(false)
+      fetchAll()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro inesperado'
+      toast({ title: 'Erro', description: message, variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   // ==================== Stats ====================
 
@@ -386,10 +574,20 @@ export default function Home() {
           </CardTitle>
           <CardDescription>Gerencie o cadastro de produtos e movimentações de estoque</CardDescription>
         </div>
-        <Button onClick={openCreateProduto} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Produto
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button onClick={openCreateProduto} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Produto
+          </Button>
+          <Button onClick={openEntradaLote} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
+            <ArrowDownCircle className="mr-2 h-4 w-4" />
+            Entrada em Lote
+          </Button>
+          <Button onClick={openSaidaLote} className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700">
+            <ArrowUpCircle className="mr-2 h-4 w-4" />
+            Saída em Lote
+          </Button>
+        </div>
       </CardHeader>
       <Separator />
       <CardContent className="pt-4 px-0">
@@ -870,6 +1068,262 @@ export default function Home() {
     </Dialog>
   )
 
+  const renderDialogEntradaLote = () => (
+    <Dialog open={dialogEntradaLoteOpen} onOpenChange={setDialogEntradaLoteOpen}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
+            Entrada em Lote
+          </DialogTitle>
+          <DialogDescription>
+            Adicione múltiplos produtos ao estoque em uma única operação
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="lote-entrada-data">Data</Label>
+              <Input
+                id="lote-entrada-data"
+                type="date"
+                value={loteEntradaData}
+                onChange={(e) => setLoteEntradaData(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lote-entrada-ref">Referência</Label>
+              <Input
+                id="lote-entrada-ref"
+                placeholder="Ex: Nota fiscal #1234"
+                value={loteEntradaRef}
+                onChange={(e) => setLoteEntradaRef(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lote-entrada-obs">Observação Geral</Label>
+            <Input
+              id="lote-entrada-obs"
+              placeholder="Ex: Compra do fornecedor X"
+              value={loteEntradaObs}
+              onChange={(e) => setLoteEntradaObs(e.target.value)}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              {loteEntradaItens.length} item(ns) adicionado(s)
+            </p>
+          </div>
+          <div className="max-h-[300px] overflow-y-auto space-y-2">
+            {loteEntradaItens.map((item, idx) => (
+              <div key={item._tempId} className="flex items-start gap-2 rounded-lg border p-3 bg-muted/30">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-xs font-bold mt-2">
+                  {idx + 1}
+                </span>
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Produto</Label>
+                    <Select
+                      value={item.produtoId}
+                      onValueChange={(val) => updateEntradaLoteItem(item._tempId, 'produtoId', val)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecionar..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {produtos.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Quantidade</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="0"
+                      className="h-8"
+                      value={item.quantidade}
+                      onChange={(e) => updateEntradaLoteItem(item._tempId, 'quantidade', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Preço Unit. (R$)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0,00"
+                      className="h-8"
+                      value={item.preco}
+                      onChange={(e) => updateEntradaLoteItem(item._tempId, 'preco', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 mt-2"
+                  onClick={() => removeEntradaLoteItem(item._tempId)}
+                  disabled={loteEntradaItens.length <= 1}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-dashed"
+            onClick={addEntradaLoteItem}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar item
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDialogEntradaLoteOpen(false)} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmitEntradaLote} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Registrar Todas as Entradas
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const renderDialogSaidaLote = () => (
+    <Dialog open={dialogSaidaLoteOpen} onOpenChange={setDialogSaidaLoteOpen}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowUpCircle className="h-5 w-5 text-rose-600" />
+            Saída em Lote
+          </DialogTitle>
+          <DialogDescription>
+            Remova múltiplos produtos do estoque em uma única operação
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="lote-saida-data">Data</Label>
+              <Input
+                id="lote-saida-data"
+                type="date"
+                value={loteSaidaData}
+                onChange={(e) => setLoteSaidaData(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lote-saida-ref">Referência</Label>
+              <Input
+                id="lote-saida-ref"
+                placeholder="Ex: Pedido #5678"
+                value={loteSaidaRef}
+                onChange={(e) => setLoteSaidaRef(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lote-saida-obs">Observação Geral</Label>
+            <Input
+              id="lote-saida-obs"
+              placeholder="Ex: Venda para cliente Y"
+              value={loteSaidaObs}
+              onChange={(e) => setLoteSaidaObs(e.target.value)}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              {loteSaidaItens.length} item(ns) adicionado(s)
+            </p>
+          </div>
+          <div className="max-h-[300px] overflow-y-auto space-y-2">
+            {loteSaidaItens.map((item, idx) => (
+              <div key={item._tempId} className="flex items-start gap-2 rounded-lg border p-3 bg-muted/30">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-xs font-bold mt-2">
+                  {idx + 1}
+                </span>
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Produto</Label>
+                    <Select
+                      value={item.produtoId}
+                      onValueChange={(val) => updateSaidaLoteItem(item._tempId, 'produtoId', val)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecionar..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {produtos.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nome} (estoque: {p.estoque})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Quantidade</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="0"
+                      className="h-8"
+                      value={item.quantidade}
+                      onChange={(e) => updateSaidaLoteItem(item._tempId, 'quantidade', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 mt-2"
+                  onClick={() => removeSaidaLoteItem(item._tempId)}
+                  disabled={loteSaidaItens.length <= 1}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-dashed"
+            onClick={addSaidaLoteItem}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar item
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDialogSaidaLoteOpen(false)} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmitSaidaLote} disabled={submitting} className="bg-rose-600 hover:bg-rose-700">
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Registrar Todas as Saídas
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   // ==================== Main Render ====================
 
   return (
@@ -938,6 +1392,8 @@ export default function Home() {
       {renderDialogEntrada()}
       {renderDialogSaida()}
       {renderDialogDelete()}
+      {renderDialogEntradaLote()}
+      {renderDialogSaidaLote()}
     </div>
   )
 }

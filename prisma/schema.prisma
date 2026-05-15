@@ -25,6 +25,7 @@ model NotaEntrada {
   quantidade Int
   preco      Float
   dataNota   String
+  referencia String?
   observacao String?
   createdAt  DateTime @default(now())
 
@@ -37,6 +38,7 @@ model NotaSaida {
   quantidade Int
   precoUnit  Float
   dataNota   String
+  referencia String?
   observacao String?
   createdAt  DateTime @default(now())
 
