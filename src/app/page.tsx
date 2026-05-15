@@ -973,11 +973,13 @@ export default function Home() {
 
   // ==================== Render: Log (Cupom de Impressora) ====================
 
+  const LINHA = '============================'
+
   if (tela === 'log') {
-    const isEntrada = cuponsGrupo[0]?.tipo === 'entrada'
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#2a2a2a' }}>
-        <header className="border-b bg-zinc-900 sticky top-0 z-40">
+      <div className="min-h-screen flex flex-col" style={{ background: '#1a1a1a' }}>
+        {/* Header */}
+        <header className="border-b sticky top-0 z-40" style={{ background: '#111', borderColor: '#333' }}>
           <div className="mx-auto max-w-md px-4 py-3 flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setTela('menu')} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
               <ChevronLeft className="h-5 w-5" />
@@ -985,10 +987,10 @@ export default function Home() {
             <div className="flex-1">
               <h1 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                 <ScrollText className="h-5 w-5 text-amber-400" />
-                Movimentações
+                Movimentacoes
               </h1>
             </div>
-            <Badge variant="secondary" className="font-mono bg-zinc-800 text-zinc-300 border-zinc-700">
+            <Badge variant="secondary" className="font-mono" style={{ background: '#222', color: '#aaa', borderColor: '#444' }}>
               {cuponsGrupo.length} cupom(ns)
             </Badge>
           </div>
@@ -1002,7 +1004,7 @@ export default function Home() {
           ) : cuponsGrupo.length === 0 ? (
             <div className="text-center py-20">
               <ScrollText className="h-12 w-12 mx-auto text-zinc-600 mb-3" />
-              <p className="text-zinc-500">Nenhuma movimentação registrada</p>
+              <p className="text-zinc-500">Nenhuma movimentacao registrada</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-6">
@@ -1010,141 +1012,199 @@ export default function Home() {
                 const totalGeral = cupom.itens.reduce((acc, item) => acc + (item.quantidade * item.preco), 0)
                 const totalItens = cupom.itens.reduce((acc, item) => acc + item.quantidade, 0)
                 const isEntradaCupom = cupom.tipo === 'entrada'
+                const cupomIdx = cuponsGrupo.indexOf(cupom) + 1
+                const refShort = cupom.loteId.replace('LOTE:', '').substring(0, 6).toUpperCase()
 
                 return (
                   <div
                     key={cupom.loteId}
                     className="w-full"
-                    style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.4))' }}
+                    style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
                   >
-                    {/* Serrilhado superior */}
-                    <div className="w-full overflow-hidden" style={{ height: '8px' }}>
-                      <svg width="100%" height="8" preserveAspectRatio="none" viewBox="0 0 400 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M0 0 Q5 8 10 0 Q15 8 20 0 Q25 8 30 0 Q35 8 40 0 Q45 8 50 0 Q55 8 60 0 Q65 8 70 0 Q75 8 80 0 Q85 8 90 0 Q95 8 100 0 Q105 8 110 0 Q115 8 120 0 Q125 8 130 0 Q135 8 140 0 Q145 8 150 0 Q155 8 160 0 Q165 8 170 0 Q175 8 180 0 Q185 8 190 0 Q195 8 200 0 Q205 8 210 0 Q215 8 220 0 Q225 8 230 0 Q235 8 240 0 Q245 8 250 0 Q255 8 260 0 Q265 8 270 0 Q275 8 280 0 Q285 8 290 0 Q295 8 300 0 Q305 8 310 0 Q315 8 320 0 Q325 8 330 0 Q335 8 340 0 Q345 8 350 0 Q355 8 360 0 Q365 8 370 0 Q375 8 380 0 Q385 8 390 0 Q395 8 400 0 V0 H0Z" fill="white"/>
+                    {/* Serrilhado superior (bordas triangulares) */}
+                    <div className="w-full flex" style={{ height: '10px' }}>
+                      <svg width="100%" height="10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                          <pattern id={`t-${cupomIdx}`} x="0" y="0" width="16" height="10" patternUnits="userSpaceOnUse">
+                            <polygon points="8,10 0,0 16,0" fill="#1a1a1a"/>
+                          </pattern>
+                        </defs>
+                        <rect width="100%" height="10" fill="#fff"/>
+                        <rect width="100%" height="10" fill={`url(#t-${cupomIdx})`}/>
                       </svg>
                     </div>
 
                     {/* Corpo do cupom */}
-                    <div className="bg-white" style={{ fontFamily: "'Courier New', Courier, monospace" }}>
-                      {/* Header do cupom */}
-                      <div className="text-center pt-5 pb-3 px-4">
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                          <Receipt className="h-5 w-5 text-zinc-700" />
-                          <span className="text-lg font-bold tracking-wider text-zinc-800" style={{ fontSize: '14px' }}>
-                            CONTROLE DE ESTOQUE
-                          </span>
-                        </div>
-                        <div className="border-t border-dashed border-zinc-300 mt-2 mb-1" />
-                        <div className="text-center mt-2">
-                          <span
-                            className="inline-block px-3 py-0.5 text-xs font-bold tracking-widest rounded"
-                            style={{
-                              backgroundColor: isEntradaCupom ? '#059669' : '#e11d48',
-                              color: 'white',
-                              fontSize: '11px',
-                            }}
-                          >
-                            {isEntradaCupom ? 'ENTRADA' : 'SAIDA'}
-                          </span>
-                        </div>
+                    <div
+                      className="bg-white"
+                      style={{
+                        fontFamily: "'Courier New', 'Lucida Console', monospace",
+                        padding: '16px 12px',
+                        lineHeight: '1.4',
+                      }}
+                    >
+                      {/* === CABECALHO DA EMPRESA === */}
+                      <div className="text-center">
+                        <p className="font-bold" style={{ fontSize: '16px', letterSpacing: '2px', color: '#000' }}>
+                          DOCE MANIA
+                        </p>
+                        <p style={{ fontSize: '11px', color: '#333', marginTop: '2px' }}>
+                          DISTRIBUIDORA LTDA
+                        </p>
+                        <p style={{ fontSize: '9px', color: '#666', marginTop: '2px' }}>
+                          SISTEMA DE CONTROLE DE ESTOQUE
+                        </p>
                       </div>
 
-                      {/* Data e Referência */}
-                      <div className="px-4 pb-2 text-center" style={{ fontSize: '11px' }}>
-                        <p className="text-zinc-500">{formatLogDate(cupom.dataNota)}</p>
+                      {/* Linha separadora */}
+                      <p className="text-center" style={{ fontSize: '10px', color: '#999', margin: '8px 0' }}>
+                        {LINHA}
+                      </p>
+
+                      {/* === TITULO DO DOCUMENTO === */}
+                      <div className="text-center">
+                        <p className="font-bold" style={{ fontSize: '14px', color: '#000' }}>
+                          {isEntradaCupom ? 'NOTA DE ENTRADA' : 'NOTA DE SAIDA'}
+                        </p>
+                        <p style={{ fontSize: '8px', color: '#888', marginTop: '1px' }}>
+                          (CONTROLE INTERNO)
+                        </p>
+                      </div>
+
+                      {/* Linha separadora */}
+                      <p className="text-center" style={{ fontSize: '10px', color: '#999', margin: '8px 0' }}>
+                        {LINHA}
+                      </p>
+
+                      {/* === DADOS DA TRANSACAO === */}
+                      <div style={{ fontSize: '11px', color: '#333' }}>
+                        <div className="flex justify-between">
+                          <span>DATA:</span>
+                          <span>{formatLogDate(cupom.dataNota)}</span>
+                        </div>
+                        <div className="flex justify-between" style={{ marginTop: '2px' }}>
+                          <span>TIPO:</span>
+                          <span className="font-bold" style={{ color: isEntradaCupom ? '#059669' : '#dc2626' }}>
+                            {isEntradaCupom ? 'ENTRADA DE PRODUTOS' : 'SAIDA DE PRODUTOS'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between" style={{ marginTop: '2px' }}>
+                          <span>REGISTRO:</span>
+                          <span>#{refShort}</span>
+                        </div>
                         {cupom.referencia && (
-                          <p className="text-zinc-700 font-bold mt-0.5" style={{ fontSize: '10px' }}>
-                            Ref: {cupom.referencia}
-                          </p>
+                          <div className="flex justify-between" style={{ marginTop: '2px' }}>
+                            <span>REFERENCIA:</span>
+                            <span className="font-bold">{cupom.referencia}</span>
+                          </div>
                         )}
                       </div>
 
-                      {/* Linha pontilhada separadora */}
-                      <div className="px-4">
-                        <div className="border-t border-dashed border-zinc-300" />
+                      {/* Linha separadora */}
+                      <p className="text-center" style={{ fontSize: '10px', color: '#999', margin: '8px 0' }}>
+                        {LINHA}
+                      </p>
+
+                      {/* === CABECALHO DA TABELA DE ITENS === */}
+                      <div
+                        className="flex justify-between font-bold"
+                        style={{ fontSize: '10px', color: '#000', borderBottom: '1px dashed #ccc', paddingBottom: '4px', marginBottom: '4px' }}
+                      >
+                        <span>DESCRICAO</span>
+                        <div className="flex">
+                          <span style={{ width: '32px', textAlign: 'right' }}>QTD</span>
+                          <span style={{ width: '60px', textAlign: 'right', marginLeft: '8px' }}>P.UNIT</span>
+                          <span style={{ width: '62px', textAlign: 'right', marginLeft: '8px' }}>SUBTOTAL</span>
+                        </div>
                       </div>
 
-                      {/* Header das colunas */}
-                      <div className="px-4 py-2 flex justify-between text-zinc-400" style={{ fontSize: '10px', fontWeight: 'bold' }}>
-                        <span>ITEM</span>
-                        <span className="flex gap-3">
-                          <span className="w-10 text-right">QTD</span>
-                          <span className="w-16 text-right">P.UNI</span>
-                          <span className="w-20 text-right">SUBTOTAL</span>
+                      {/* === ITENS === */}
+                      <div>
+                        {cupom.itens.map((item, idx) => {
+                          const subtotal = item.quantidade * item.preco
+                          return (
+                            <div key={item.id}>
+                              <p
+                                className="font-bold truncate"
+                                style={{ fontSize: '11px', color: '#000', marginTop: idx > 0 ? '6px' : '0' }}
+                              >
+                                {item.produtoNome.toUpperCase()}
+                              </p>
+                              <div
+                                className="flex justify-between"
+                                style={{ fontSize: '10px', color: '#444' }}
+                              >
+                                <span>{item.quantidade} UN</span>
+                                <div className="flex">
+                                  <span style={{ width: '32px', textAlign: 'right' }}>{item.preco.toFixed(2)}</span>
+                                  <span className="font-bold" style={{ width: '62px', textAlign: 'right', marginLeft: '8px', color: '#000' }}>
+                                    {subtotal.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                              {idx < cupom.itens.length - 1 && (
+                                <p style={{ fontSize: '8px', color: '#ddd', margin: '4px 0 0 0' }}>
+                                  ----------------------------------------
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Linha separadora */}
+                      <p className="text-center" style={{ fontSize: '10px', color: '#999', margin: '8px 0' }}>
+                        {LINHA}
+                      </p>
+
+                      {/* === TOTAL GERAL === */}
+                      <div className="flex justify-between items-center" style={{ marginTop: '4px' }}>
+                        <span className="font-bold" style={{ fontSize: '13px', color: '#000' }}>
+                          TOTAL GERAL
+                        </span>
+                        <span
+                          className="font-bold"
+                          style={{
+                            fontSize: '15px',
+                            color: isEntradaCupom ? '#059669' : '#dc2626',
+                          }}
+                        >
+                          R$ {totalGeral.toFixed(2)}
                         </span>
                       </div>
 
-                      {/* Linha pontilhada */}
-                      <div className="px-4">
-                        <div className="border-t border-dashed border-zinc-300" />
+                      <div className="flex justify-between" style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+                        <span>TOTAL DE ITENS:</span>
+                        <span>{totalItens} UN</span>
                       </div>
 
-                      {/* Lista de itens */}
-                      <div className="px-4 py-1">
-                        {cupom.itens.map((item, idx) => (
-                          <div key={item.id} className="py-1.5">
-                            <p className="text-zinc-800 font-bold truncate" style={{ fontSize: '11px' }}>
-                              {item.produtoNome}
-                            </p>
-                            <div className="flex justify-between mt-0.5" style={{ fontSize: '11px' }}>
-                              <span className="text-zinc-400" style={{ fontSize: '10px' }}>
-                                {isEntradaCupom ? '+' : '-'}{item.quantidade} un x {formatCurrency(item.preco)}
-                              </span>
-                              <span className="font-bold text-zinc-800">
-                                {formatCurrency(item.quantidade * item.preco)}
-                              </span>
-                            </div>
-                            {idx < cupom.itens.length - 1 && (
-                              <div className="border-b border-dotted border-zinc-200 mt-1.5" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                      {/* Linha separadora */}
+                      <p className="text-center" style={{ fontSize: '10px', color: '#999', margin: '10px 0 6px' }}>
+                        {LINHA}
+                      </p>
 
-                      {/* Linha dupla separadora */}
-                      <div className="px-4 py-1">
-                        <div className="border-t-2 border-double border-zinc-400" />
-                      </div>
-
-                      {/* Resumo */}
-                      <div className="px-4 py-2 space-y-1">
-                        <div className="flex justify-between" style={{ fontSize: '11px' }}>
-                          <span className="text-zinc-500">Total de itens:</span>
-                          <span className="text-zinc-700 font-bold">{totalItens} un.</span>
-                        </div>
-
-                        {/* Total grande */}
-                        <div
-                          className="flex justify-between items-center pt-1"
-                          style={{ fontSize: '16px', fontWeight: '900' }}
-                        >
-                          <span className="text-zinc-800">TOTAL:</span>
-                          <span
-                            style={{
-                              color: isEntradaCupom ? '#059669' : '#e11d48',
-                            }}
-                          >
-                            {formatCurrency(totalGeral)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Rodapé */}
-                      <div className="px-4 pt-1 pb-2">
-                        <div className="border-t border-dashed border-zinc-300" />
-                        <p className="text-center text-zinc-400 mt-2" style={{ fontSize: '9px' }}>
-                          {formatLogDate(cupom.createdAt)}
+                      {/* === RODAPE === */}
+                      <div className="text-center" style={{ fontSize: '8px', color: '#aaa' }}>
+                        <p>Gerado em {formatLogDate(cupom.createdAt)}</p>
+                        <p style={{ marginTop: '4px' }}>
+                          DOCE MANIA EXPRESS - SISTEMA DE ESTOQUE
                         </p>
-                        <p className="text-center text-zinc-300 mt-1" style={{ fontSize: '8px' }}>
-                          Docemania Express
+                        <p style={{ marginTop: '8px', color: '#ccc' }}>
+                          OBRIGADO POR USAR NOSSO SISTEMA!
                         </p>
                       </div>
                     </div>
 
-                    {/* Serrilhado inferior */}
-                    <div className="w-full overflow-hidden" style={{ height: '8px' }}>
-                      <svg width="100%" height="8" preserveAspectRatio="none" viewBox="0 0 400 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M0 8 Q5 0 10 8 Q15 0 20 8 Q25 0 30 8 Q35 0 40 8 Q45 0 50 8 Q55 0 60 8 Q65 0 70 8 Q75 0 80 8 Q85 0 90 8 Q95 0 100 8 Q105 0 110 8 Q115 0 120 8 Q125 0 130 8 Q135 0 140 8 Q145 0 150 8 Q155 0 160 8 Q165 0 170 8 Q175 0 180 8 Q185 0 190 8 Q195 0 200 8 Q205 0 210 8 Q215 0 220 8 Q225 0 230 8 Q235 0 240 8 Q245 0 250 8 Q255 0 260 8 Q265 0 270 8 Q275 0 280 8 Q285 0 290 8 Q295 0 300 8 Q305 0 310 8 Q315 0 320 8 Q325 0 330 8 Q335 0 340 8 Q345 0 350 8 Q355 0 360 8 Q365 0 370 8 Q375 0 380 8 Q385 0 390 8 Q395 0 400 8 V8 H0Z" fill="white"/>
+                    {/* Serrilhado inferior (bordas triangulares) */}
+                    <div className="w-full flex" style={{ height: '10px' }}>
+                      <svg width="100%" height="10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                          <pattern id={`b-${cupomIdx}`} x="0" y="0" width="16" height="10" patternUnits="userSpaceOnUse">
+                            <polygon points="0,0 8,10 16,0" fill="#1a1a1a"/>
+                          </pattern>
+                        </defs>
+                        <rect width="100%" height="10" fill="#fff"/>
+                        <rect width="100%" height="10" fill={`url(#b-${cupomIdx})`}/>
                       </svg>
                     </div>
                   </div>
