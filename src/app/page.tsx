@@ -29,10 +29,7 @@ import {
   BarChart3,
   DollarSign,
   Loader2,
-  Warehouse,
   ShoppingCart,
-  TrendingDown,
-  TrendingUp,
 } from 'lucide-react'
 
 // ==================== Types ====================
@@ -183,11 +180,6 @@ export default function Home() {
   }, [fetchAll])
 
   // ==================== Stats ====================
-
-  const totalProdutos = produtos.length
-  const totalEstoque = produtos.reduce((acc, p) => acc + p.estoque, 0)
-  const totalEntradasCount = notasEntrada.length
-  const totalSaidasCount = notasSaida.length
 
   const totalItensSaidos = notasSaida.reduce((acc, n) => acc + n.quantidade, 0)
   const totalValorSaidas = notasSaida.reduce((acc, n) => acc + n.quantidade * n.precoUnit, 0)
@@ -381,57 +373,6 @@ export default function Home() {
       setSubmitting(false)
     }
   }
-
-  // ==================== Render: Stats Cards ====================
-
-  const renderStatsCards = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card className="py-4">
-        <CardContent className="flex items-center gap-4 px-6 py-0">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
-            <Package className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">Total de Produtos</p>
-            <p className="text-2xl font-bold">{totalProdutos}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="py-4">
-        <CardContent className="flex items-center gap-4 px-6 py-0">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950">
-            <Warehouse className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">Itens em Estoque</p>
-            <p className="text-2xl font-bold">{totalEstoque.toLocaleString('pt-BR')}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="py-4">
-        <CardContent className="flex items-center gap-4 px-6 py-0">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-950">
-            <TrendingUp className="h-6 w-6 text-teal-600 dark:text-teal-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">Notas de Entrada</p>
-            <p className="text-2xl font-bold">{totalEntradasCount}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="py-4">
-        <CardContent className="flex items-center gap-4 px-6 py-0">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-950">
-            <TrendingDown className="h-6 w-6 text-rose-600 dark:text-rose-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">Notas de Saída</p>
-            <p className="text-2xl font-bold">{totalSaidasCount}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 
   // ==================== Render: Produtos Tab ====================
 
@@ -954,9 +895,6 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Stats */}
-        {renderStatsCards()}
-
         {/* Tabs */}
         <Tabs defaultValue="produtos" className="w-full">
           <TabsList className="w-full sm:w-auto">
