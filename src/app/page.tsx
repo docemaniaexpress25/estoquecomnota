@@ -23,6 +23,8 @@ import {
   Trash2,
   Loader2,
   ChevronLeft,
+  ClipboardList,
+  ScrollText,
 } from 'lucide-react'
 
 // ==================== Types ====================
@@ -47,7 +49,18 @@ interface ItemSaida {
   quantidade: string
 }
 
-type Tela = 'pin' | 'menu' | 'entrada' | 'saida' | 'novoProduto'
+type Tela = 'pin' | 'menu' | 'entrada' | 'saida' | 'estoque' | 'log'
+
+interface MovLog {
+  id: string
+  tipo: 'entrada' | 'saida'
+  produtoNome: string
+  quantidade: number
+  preco: number
+  dataNota: string
+  observacao: string | null
+  createdAt: string
+}
 
 // ==================== Component ====================
 
@@ -82,6 +95,10 @@ export default function Home() {
   // Saída
   const [itensSaida, setItensSaida] = useState<ItemSaida[]>([])
   const [saidaRef, setSaidaRef] = useState('')
+
+  // Log
+  const [movLog, setMovLog] = useState<MovLog[]>([])
+  const [loadingLog, setLoadingLog] = useState(false)
 
   // ==================== PIN ====================
 
@@ -274,6 +291,50 @@ export default function Home() {
     }
   }
 
+  // ==================== Estoque / Log ====================
+
+  const fetchLog = useCallback(async () => {
+    setLoadingLog(true)
+    try {
+      const [resEntrada, resSaida] = await Promise.all([
+        fetch('/api/notas-entrada'),
+        fetch('/api/notas-saida'),
+      ])
+      if (!resEntrada.ok || !resSaida.ok) throw new Error()
+      const [dataEntrada, dataSaida] = await Promise.all([resEntrada.json(), resSaida.json()])
+      const logs: MovLog[] = [
+        ...dataEntrada.map((n: { id: string; produto: { nome: string }; quantidade: number; preco: number; dataNota: string; observacao: string | null; createdAt: string }) => ({
+          id: n.id,
+          tipo: 'entrada' as const,
+          produtoNome: n.produto.nome,
+          quantidade: n.quantidade,
+          preco: n.preco,
+          dataNota: n.dataNota,
+          observacao: n.observacao,
+          createdAt: n.createdAt,
+        })),
+        ...dataSaida.map((n: { id: string; produto: { nome: string }; quantidade: number; precoUnit: number; dataNota: string; observacao: string | null; createdAt: string }) => ({
+          id: n.id,
+          tipo: 'saida' as const,
+          produtoNome: n.produto.nome,
+          quantidade: n.quantidade,
+          preco: n.precoUnit,
+          dataNota: n.dataNota,
+          observacao: n.observacao,
+          createdAt: n.createdAt,
+        })),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setMovLog(logs)
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível carregar as movimentações.', variant: 'destructive' })
+    } finally {
+      setLoadingLog(false)
+    }
+  }, [toast])
+
+  const openEstoque = () => { fetchProdutos(); setTela('estoque') }
+  const openLog = () => { fetchProdutos(); fetchLog(); setTela('log') }
+
   // ==================== Helpers ====================
 
   const formatCurrency = (value: number): string =>
@@ -283,6 +344,8 @@ export default function Home() {
 
   const totalEntradaItens = itensEntrada.filter(i => Number(i.quantidade) > 0).length
   const totalSaidaItens = itensSaida.filter(i => Number(i.quantidade) > 0).length
+  const totalEstoqueGeral = produtos.reduce((acc, p) => acc + p.estoque, 0)
+  const totalValorEstoque = produtos.reduce((acc, p) => acc + (p.estoque * p.precoMedio), 0)
 
   // ==================== Render: PIN ====================
 
@@ -377,11 +440,29 @@ export default function Home() {
               Saída de Produtos
             </Button>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
+              <Button
+                variant="outline"
+                onClick={openEstoque}
+                className="w-full h-12 rounded-xl gap-2 justify-start px-4"
+              >
+                <ClipboardList className="h-4 w-4 text-blue-600" />
+                Ver Estoque
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={openLog}
+                className="w-full h-12 rounded-xl gap-2 justify-start px-4"
+              >
+                <ScrollText className="h-4 w-4 text-amber-600" />
+                Ver Movimentações
+              </Button>
+
               <Button
                 variant="outline"
                 onClick={() => setDialogNovoProduto(true)}
-                className="w-full h-12 rounded-xl gap-2"
+                className="w-full h-12 rounded-xl gap-2 justify-start px-4"
               >
                 <Plus className="h-4 w-4" />
                 Cadastrar Novo Produto
@@ -743,6 +824,212 @@ export default function Home() {
                 )}
                 {submitting ? 'Processando...' : `Registrar Saída (${totalSaidaItens})`}
               </Button>
+            </div>
+          )}
+        </main>
+      </div>
+    )
+  }
+
+  // ==================== Render: Estoque ====================
+
+  if (tela === 'estoque') {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+          <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setTela('menu')}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-blue-700 flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Estoque Atual
+              </h1>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 mx-auto w-full max-w-3xl p-4 space-y-4">
+          {/* Resumo */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+              <p className="text-xs text-blue-600 font-medium">Total de Produtos</p>
+              <p className="text-2xl font-bold text-blue-800 font-mono mt-1">{produtos.length}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+              <p className="text-xs text-blue-600 font-medium">Itens em Estoque</p>
+              <p className="text-2xl font-bold text-blue-800 font-mono mt-1">{totalEstoqueGeral.toLocaleString('pt-BR')}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border p-4 text-center">
+            <p className="text-xs text-muted-foreground font-medium">Valor Total em Estoque</p>
+            <p className="text-2xl font-bold text-emerald-700 font-mono mt-1">{formatCurrency(totalValorEstoque)}</p>
+          </div>
+
+          {/* Lista */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : produtos.length === 0 ? (
+            <div className="text-center py-20">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground">Nenhum produto cadastrado</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {produtos.map((produto) => (
+                <div
+                  key={produto.id}
+                  className="bg-white rounded-xl border p-4 flex items-center justify-between"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{produto.nome}</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      R$ {produto.precoMedio.toFixed(2).replace('.', ',')}/un.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 ml-3">
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Valor</p>
+                      <p className="text-sm font-semibold font-mono">
+                        {formatCurrency(produto.estoque * produto.precoMedio)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={produto.estoque > 0 ? 'default' : 'destructive'}
+                      className="font-mono text-base min-w-[3rem] justify-center"
+                    >
+                      {produto.estoque}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+    )
+  }
+
+  // ==================== Render: Log (Cupom) ====================
+
+  const formatLogDate = (dateStr: string): string => {
+    if (!dateStr) return '-'
+    const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00')
+    return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  if (tela === 'log') {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+          <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setTela('menu')}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-amber-700 flex items-center gap-2">
+                <ScrollText className="h-5 w-5" />
+                Movimentações
+              </h1>
+            </div>
+            <Badge variant="secondary" className="font-mono">
+              {movLog.length} registro(s)
+            </Badge>
+          </div>
+        </header>
+
+        <main className="flex-1 mx-auto w-full max-w-3xl p-4">
+          {loadingLog ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : movLog.length === 0 ? (
+            <div className="text-center py-20">
+              <ScrollText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground">Nenhuma movimentação registrada</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {movLog.map((mov) => (
+                <div
+                  key={mov.id}
+                  className="bg-white rounded-xl border shadow-sm overflow-hidden"
+                >
+                  {/* Cabeçalho do cupom */}
+                  <div
+                    className={`px-4 py-2 flex items-center justify-between ${
+                      mov.tipo === 'entrada'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-rose-600 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {mov.tipo === 'entrada' ? (
+                        <ArrowDownCircle className="h-5 w-5" />
+                      ) : (
+                        <ArrowUpCircle className="h-5 w-5" />
+                      )}
+                      <span className="font-bold text-sm uppercase tracking-wide">
+                        {mov.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                      </span>
+                    </div>
+                    <span className="text-xs opacity-90 font-mono">
+                      {formatLogDate(mov.dataNota)}
+                    </span>
+                  </div>
+
+                  {/* Corpo do cupom */}
+                  <div className="px-4 py-3 font-mono text-sm">
+                    {/* Dashed top line */}
+                    <div className="border-t-2 border-dashed border-slate-200 pt-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Produto:</span>
+                        <span className="font-semibold text-foreground">{mov.produtoNome}</span>
+                      </div>
+
+                      <div className="flex justify-between mt-1.5">
+                        <span className="text-muted-foreground">Quantidade:</span>
+                        <span className={`font-bold ${mov.tipo === 'entrada' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          {mov.tipo === 'entrada' ? '+' : '-'}{mov.quantidade} un.
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between mt-1.5">
+                        <span className="text-muted-foreground">Preço Unit.:</span>
+                        <span>{formatCurrency(mov.preco)}</span>
+                      </div>
+
+                      {/* Separator */}
+                      <div className="border-t border-dashed border-slate-200 mt-3 pt-2">
+                        <div className="flex justify-between">
+                          <span className="font-bold">TOTAL:</span>
+                          <span className="font-bold text-base">
+                            {formatCurrency(mov.quantidade * mov.preco)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dashed bottom line */}
+                    <div className="border-t-2 border-dashed border-slate-200 pt-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">Registrado em {formatLogDate(mov.createdAt)}</span>
+                        {mov.observacao && (
+                          <span className="text-[11px] text-muted-foreground text-right max-w-[50%] truncate" title={mov.observacao}>
+                            {mov.observacao}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Serrilhado inferior do cupom */}
+                  <div className="h-2 bg-gradient-to-b from-white to-transparent" />
+                </div>
+              ))}
             </div>
           )}
         </main>
