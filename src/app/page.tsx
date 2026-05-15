@@ -2,14 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -18,20 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Package,
   ArrowDownCircle,
   ArrowUpCircle,
+  Lock,
+  Package,
   Plus,
   Trash2,
-  Edit,
-  FileText,
-  BarChart3,
-  DollarSign,
   Loader2,
-  ShoppingCart,
-  XCircle,
+  ChevronLeft,
 } from 'lucide-react'
 
 // ==================== Types ====================
@@ -43,242 +34,153 @@ interface Produto {
   precoMedio: number
   createdAt: string
   updatedAt: string
-  _count: { entradas: number; saidas: number }
 }
 
-interface NotaEntrada {
-  id: string
-  produtoId: string
-  quantidade: number
-  preco: number
-  dataNota: string
-  observacao: string | null
-  createdAt: string
-  produto: { nome: string }
-}
-
-interface NotaSaida {
-  id: string
-  produtoId: string
-  quantidade: number
-  precoUnit: number
-  dataNota: string
-  observacao: string | null
-  createdAt: string
-  produto: { nome: string }
-}
-
-interface ItemLoteEntrada {
-  _tempId: number
+interface ItemEntrada {
   produtoId: string
   quantidade: string
   preco: string
-  observacao: string
 }
 
-interface ItemLoteSaida {
-  _tempId: number
+interface ItemSaida {
   produtoId: string
   quantidade: string
-  observacao: string
 }
 
-// ==================== Helpers ====================
-
-const formatCurrency = (value: number): string =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const formatDate = (dateStr: string): string => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00')
-  return date.toLocaleDateString('pt-BR')
-}
-
-const getTodayISO = (): string => {
-  const now = new Date()
-  return now.toISOString().split('T')[0]
-}
+type Tela = 'pin' | 'menu' | 'entrada' | 'saida' | 'novoProduto'
 
 // ==================== Component ====================
 
 export default function Home() {
   const { toast } = useToast()
 
-  // Data states
-  const [produtos, setProdutos] = useState<Produto[]>([])
-  const [notasEntrada, setNotasEntrada] = useState<NotaEntrada[]>([])
-  const [notasSaida, setNotasSaida] = useState<NotaSaida[]>([])
+  // Tela
+  const [tela, setTela] = useState<Tela>('pin')
+  const [pin, setPin] = useState('')
+  const [pinError, setPinError] = useState(false)
+  const [pinShake, setPinShake] = useState(false)
 
-  // Loading states
-  const [loadingProdutos, setLoadingProdutos] = useState(true)
-  const [loadingEntradas, setLoadingEntradas] = useState(true)
-  const [loadingSaidas, setLoadingSaidas] = useState(true)
+  // Produtos
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // Dialog states
-  const [dialogProdutoOpen, setDialogProdutoOpen] = useState(false)
-  const [dialogEntradaOpen, setDialogEntradaOpen] = useState(false)
-  const [dialogSaidaOpen, setDialogSaidaOpen] = useState(false)
-  const [dialogDeleteOpen, setDialogDeleteOpen] = useState(false)
+  // Novo produto dialog
+  const [dialogNovoProduto, setDialogNovoProduto] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoEstoque, setNovoEstoque] = useState('')
+  const [novoPreco, setNovoPreco] = useState('')
 
-  // Form states
-  const [editingProduto, setEditingProduto] = useState<Produto | null>(null)
-  const [selectedProduto, setSelectedProduto] = useState<Produto | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Produto | null>(null)
+  // Excluir dialog
+  const [dialogExcluir, setDialogExcluir] = useState(false)
+  const [excluirTarget, setExcluirTarget] = useState<Produto | null>(null)
 
-  // Produto form
-  const [formNome, setFormNome] = useState('')
-  const [formEstoque, setFormEstoque] = useState('0')
-  const [formPrecoMedio, setFormPrecoMedio] = useState('0')
+  // Entrada
+  const [itensEntrada, setItensEntrada] = useState<ItemEntrada[]>([])
+  const [entradaRef, setEntradaRef] = useState('')
 
-  // Entrada form
-  const [entradaQuantidade, setEntradaQuantidade] = useState('')
-  const [entradaPreco, setEntradaPreco] = useState('')
-  const [entradaData, setEntradaData] = useState(getTodayISO())
-  const [entradaObservacao, setEntradaObservacao] = useState('')
+  // Saída
+  const [itensSaida, setItensSaida] = useState<ItemSaida[]>([])
+  const [saidaRef, setSaidaRef] = useState('')
 
-  // Saida form
-  const [saidaQuantidade, setSaidaQuantidade] = useState('')
-  const [saidaData, setSaidaData] = useState(getTodayISO())
-  const [saidaObservacao, setSaidaObservacao] = useState('')
+  // ==================== PIN ====================
 
-  // Batch Entrada form
-  const [dialogEntradaLoteOpen, setDialogEntradaLoteOpen] = useState(false)
-  const [loteEntradaItens, setLoteEntradaItens] = useState<ItemLoteEntrada[]>([])
-  const [loteEntradaData, setLoteEntradaData] = useState(getTodayISO())
-  const [loteEntradaRef, setLoteEntradaRef] = useState('')
-  const [loteEntradaObs, setLoteEntradaObs] = useState('')
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (pin === '233023') {
+      setTela('menu')
+      setPin('')
+      setPinError(false)
+      fetchProdutos()
+    } else {
+      setPinError(true)
+      setPinShake(true)
+      setTimeout(() => setPinShake(false), 500)
+      setTimeout(() => setPinError(false), 2000)
+    }
+  }
 
-  // Batch Saida form
-  const [dialogSaidaLoteOpen, setDialogSaidaLoteOpen] = useState(false)
-  const [loteSaidaItens, setLoteSaidaItens] = useState<ItemLoteSaida[]>([])
-  const [loteSaidaData, setLoteSaidaData] = useState(getTodayISO())
-  const [loteSaidaRef, setLoteSaidaRef] = useState('')
-  const [loteSaidaObs, setLoteSaidaObs] = useState('')
-
-  // ==================== Fetch Functions ====================
+  // ==================== Fetch ====================
 
   const fetchProdutos = useCallback(async () => {
-    setLoadingProdutos(true)
+    setLoading(true)
     try {
       const res = await fetch('/api/produtos')
-      if (!res.ok) throw new Error('Erro ao buscar produtos')
+      if (!res.ok) throw new Error()
       const data = await res.json()
       setProdutos(data)
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível carregar os produtos.', variant: 'destructive' })
     } finally {
-      setLoadingProdutos(false)
+      setLoading(false)
     }
   }, [toast])
 
-  const fetchNotasEntrada = useCallback(async () => {
-    setLoadingEntradas(true)
-    try {
-      const res = await fetch('/api/notas-entrada')
-      if (!res.ok) throw new Error('Erro ao buscar notas')
-      const data = await res.json()
-      setNotasEntrada(data)
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível carregar as notas de entrada.', variant: 'destructive' })
-    } finally {
-      setLoadingEntradas(false)
-    }
-  }, [toast])
+  // ==================== Novo Produto ====================
 
-  const fetchNotasSaida = useCallback(async () => {
-    setLoadingSaidas(true)
-    try {
-      const res = await fetch('/api/notas-saida')
-      if (!res.ok) throw new Error('Erro ao buscar notas')
-      const data = await res.json()
-      setNotasSaida(data)
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível carregar as notas de saída.', variant: 'destructive' })
-    } finally {
-      setLoadingSaidas(false)
-    }
-  }, [toast])
-
-  const fetchAll = useCallback(() => {
-    fetchProdutos()
-    fetchNotasEntrada()
-    fetchNotasSaida()
-  }, [fetchProdutos, fetchNotasEntrada, fetchNotasSaida])
-
-  useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
-
-  // ==================== Batch (Lote) Entrada / Saída ====================
-
-  let nextTempId = 1
-
-  const openEntradaLote = () => {
-    nextTempId = 1
-    setLoteEntradaItens([{ _tempId: nextTempId++, produtoId: '', quantidade: '', preco: '', observacao: '' }])
-    setLoteEntradaData(getTodayISO())
-    setLoteEntradaRef('')
-    setLoteEntradaObs('')
-    setDialogEntradaLoteOpen(true)
-  }
-
-  const openSaidaLote = () => {
-    nextTempId = 1
-    setLoteSaidaItens([{ _tempId: nextTempId++, produtoId: '', quantidade: '', observacao: '' }])
-    setLoteSaidaData(getTodayISO())
-    setLoteSaidaRef('')
-    setLoteSaidaObs('')
-    setDialogSaidaLoteOpen(true)
-  }
-
-  const addEntradaLoteItem = () => {
-    setLoteEntradaItens(prev => [...prev, { _tempId: nextTempId++, produtoId: '', quantidade: '', preco: '', observacao: '' }])
-  }
-
-  const removeEntradaLoteItem = (tempId: number) => {
-    setLoteEntradaItens(prev => prev.filter(i => i._tempId !== tempId))
-  }
-
-  const updateEntradaLoteItem = (tempId: number, field: keyof ItemLoteEntrada, value: string) => {
-    setLoteEntradaItens(prev => prev.map(i => i._tempId === tempId ? { ...i, [field]: value } : i))
-  }
-
-  const addSaidaLoteItem = () => {
-    setLoteSaidaItens(prev => [...prev, { _tempId: nextTempId++, produtoId: '', quantidade: '', observacao: '' }])
-  }
-
-  const removeSaidaLoteItem = (tempId: number) => {
-    setLoteSaidaItens(prev => prev.filter(i => i._tempId !== tempId))
-  }
-
-  const updateSaidaLoteItem = (tempId: number, field: keyof ItemLoteSaida, value: string) => {
-    setLoteSaidaItens(prev => prev.map(i => i._tempId === tempId ? { ...i, [field]: value } : i))
-  }
-
-  const handleSubmitEntradaLote = async () => {
-    if (loteEntradaItens.length === 0) {
-      toast({ title: 'Sem itens', description: 'Adicione pelo menos um item ao lote.', variant: 'destructive' })
+  const handleCriarProduto = async () => {
+    if (!novoNome.trim()) {
+      toast({ title: 'Campo obrigatório', description: 'Informe o nome do produto.', variant: 'destructive' })
       return
     }
-    for (const item of loteEntradaItens) {
-      if (!item.produtoId) {
-        toast({ title: 'Campo obrigatório', description: 'Selecione um produto para todos os itens.', variant: 'destructive' })
-        return
-      }
-      if (!Number(item.quantidade) || Number(item.quantidade) <= 0) {
-        toast({ title: 'Valor inválido', description: 'Informe uma quantidade válida maior que zero para todos os itens.', variant: 'destructive' })
-        return
-      }
-      if (isNaN(Number(item.preco)) || Number(item.preco) < 0) {
-        toast({ title: 'Valor inválido', description: 'Informe um preço unitário válido para todos os itens.', variant: 'destructive' })
-        return
-      }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/produtos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: novoNome.trim(),
+          estoque: Number(novoEstoque) || 0,
+          precoMedio: Number(novoPreco) || 0,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      toast({ title: 'Produto criado', description: `"${novoNome.trim()}" adicionado ao estoque.` })
+      setDialogNovoProduto(false)
+      setNovoNome('')
+      setNovoEstoque('')
+      setNovoPreco('')
+      fetchProdutos()
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao criar produto.', variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
     }
-    const ids = loteEntradaItens.map(i => i.produtoId)
-    const uniqueIds = new Set(ids)
-    if (uniqueIds.size !== ids.length) {
-      toast({ title: 'Produto duplicado', description: 'Não é possível adicionar o mesmo produto mais de uma vez no mesmo lote.', variant: 'destructive' })
+  }
+
+  const handleExcluirProduto = async () => {
+    if (!excluirTarget) return
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/produtos?id=${excluirTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast({ title: 'Excluído', description: `"${excluirTarget.nome}" removido.` })
+      setDialogExcluir(false)
+      setExcluirTarget(null)
+      fetchProdutos()
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao excluir.', variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ==================== Entrada ====================
+
+  const openEntrada = () => {
+    setItensEntrada(produtos.map(p => ({ produtoId: p.id, quantidade: '', preco: '' })))
+    setEntradaRef('')
+    setTela('entrada')
+  }
+
+  const updateEntrada = (produtoId: string, field: 'quantidade' | 'preco', value: string) => {
+    setItensEntrada(prev => prev.map(i => i.produtoId === produtoId ? { ...i, [field]: value } : i))
+  }
+
+  const handleSubmitEntrada = async () => {
+    const validos = itensEntrada.filter(i => Number(i.quantidade) > 0 && Number(i.preco) >= 0)
+    if (validos.length === 0) {
+      toast({ title: 'Nada para registrar', description: 'Preencha quantidade e preço de ao menos um produto.', variant: 'destructive' })
       return
     }
 
@@ -288,52 +190,60 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: loteEntradaItens.map(i => ({
+          items: validos.map(i => ({
             produtoId: i.produtoId,
             quantidade: Number(i.quantidade),
             preco: Number(i.preco),
-            observacao: i.observacao || undefined,
           })),
-          dataNota: loteEntradaData || undefined,
-          referencia: loteEntradaRef || undefined,
-          observacao: loteEntradaObs || undefined,
+          referencia: entradaRef || undefined,
         }),
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Erro ao registrar lote de entrada')
+        throw new Error(err.error || 'Erro')
       }
-      toast({ title: 'Lote de entrada registrado', description: `${loteEntradaItens.length} item(ns) adicionado(s) ao estoque.` })
-      setDialogEntradaLoteOpen(false)
-      fetchAll()
+      toast({ title: 'Entrada registrada', description: `${validos.length} produto(s) adicionado(s) ao estoque.` })
+      setTela('menu')
+      fetchProdutos()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado'
-      toast({ title: 'Erro', description: message, variant: 'destructive' })
+      const msg = err instanceof Error ? err.message : 'Erro inesperado'
+      toast({ title: 'Erro', description: msg, variant: 'destructive' })
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleSubmitSaidaLote = async () => {
-    if (loteSaidaItens.length === 0) {
-      toast({ title: 'Sem itens', description: 'Adicione pelo menos um item ao lote.', variant: 'destructive' })
+  // ==================== Saída ====================
+
+  const openSaida = () => {
+    const comEstoque = produtos.filter(p => p.estoque > 0)
+    setItensSaida(comEstoque.map(p => ({ produtoId: p.id, quantidade: '' })))
+    setSaidaRef('')
+    setTela('saida')
+  }
+
+  const updateSaida = (produtoId: string, value: string) => {
+    setItensSaida(prev => prev.map(i => i.produtoId === produtoId ? { ...i, quantidade: value } : i))
+  }
+
+  const handleSubmitSaida = async () => {
+    const validos = itensSaida.filter(i => Number(i.quantidade) > 0)
+    if (validos.length === 0) {
+      toast({ title: 'Nada para registrar', description: 'Preencha quantidade de ao menos um produto.', variant: 'destructive' })
       return
     }
-    for (const item of loteSaidaItens) {
-      if (!item.produtoId) {
-        toast({ title: 'Campo obrigatório', description: 'Selecione um produto para todos os itens.', variant: 'destructive' })
+
+    // Validar estoque
+    for (const item of validos) {
+      const produto = produtos.find(p => p.id === item.produtoId)
+      if (produto && Number(item.quantidade) > produto.estoque) {
+        toast({
+          title: 'Estoque insuficiente',
+          description: `"${produto.nome}" — Disponível: ${produto.estoque}, Solicitado: ${item.quantidade}`,
+          variant: 'destructive',
+        })
         return
       }
-      if (!Number(item.quantidade) || Number(item.quantidade) <= 0) {
-        toast({ title: 'Valor inválido', description: 'Informe uma quantidade válida maior que zero para todos os itens.', variant: 'destructive' })
-        return
-      }
-    }
-    const ids = loteSaidaItens.map(i => i.produtoId)
-    const uniqueIds = new Set(ids)
-    if (uniqueIds.size !== ids.length) {
-      toast({ title: 'Produto duplicado', description: 'Não é possível remover o mesmo produto mais de uma vez no mesmo lote.', variant: 'destructive' })
-      return
     }
 
     setSubmitting(true)
@@ -342,1058 +252,505 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: loteSaidaItens.map(i => ({
+          items: validos.map(i => ({
             produtoId: i.produtoId,
             quantidade: Number(i.quantidade),
-            observacao: i.observacao || undefined,
           })),
-          dataNota: loteSaidaData || undefined,
-          referencia: loteSaidaRef || undefined,
-          observacao: loteSaidaObs || undefined,
+          referencia: saidaRef || undefined,
         }),
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Erro ao registrar lote de saída')
+        throw new Error(err.error || 'Erro')
       }
-      toast({ title: 'Lote de saída registrado', description: `${loteSaidaItens.length} item(ns) removido(s) do estoque.` })
-      setDialogSaidaLoteOpen(false)
-      fetchAll()
+      toast({ title: 'Saída registrada', description: `${validos.length} produto(s) removido(s) do estoque.` })
+      setTela('menu')
+      fetchProdutos()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado'
-      toast({ title: 'Erro', description: message, variant: 'destructive' })
+      const msg = err instanceof Error ? err.message : 'Erro inesperado'
+      toast({ title: 'Erro', description: msg, variant: 'destructive' })
     } finally {
       setSubmitting(false)
     }
   }
 
-  // ==================== Stats ====================
+  // ==================== Helpers ====================
 
-  const totalItensSaidos = notasSaida.reduce((acc, n) => acc + n.quantidade, 0)
-  const totalValorSaidas = notasSaida.reduce((acc, n) => acc + n.quantidade * n.precoUnit, 0)
+  const formatCurrency = (value: number): string =>
+    value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-  // ==================== Produto CRUD ====================
+  const getProdutoById = (id: string) => produtos.find(p => p.id === id)
 
-  const openCreateProduto = () => {
-    setEditingProduto(null)
-    setFormNome('')
-    setFormEstoque('0')
-    setFormPrecoMedio('0')
-    setDialogProdutoOpen(true)
-  }
+  const totalEntradaItens = itensEntrada.filter(i => Number(i.quantidade) > 0).length
+  const totalSaidaItens = itensSaida.filter(i => Number(i.quantidade) > 0).length
 
-  const openEditProduto = (produto: Produto) => {
-    setEditingProduto(produto)
-    setFormNome(produto.nome)
-    setFormEstoque(String(produto.estoque))
-    setFormPrecoMedio(String(produto.precoMedio))
-    setDialogProdutoOpen(true)
-  }
+  // ==================== Render: PIN ====================
 
-  const handleSubmitProduto = async () => {
-    if (!formNome.trim()) {
-      toast({ title: 'Campo obrigatório', description: 'Informe o nome do produto.', variant: 'destructive' })
-      return
-    }
+  if (tela === 'pin') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+        <div className="w-full max-w-xs">
+          <div className="text-center mb-8">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-600/30 mb-4">
+              <Lock className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white">Controle de Estoque</h1>
+            <p className="text-slate-400 mt-1">Digite o PIN para acessar</p>
+          </div>
 
-    setSubmitting(true)
-    try {
-      const body = {
-        nome: formNome.trim(),
-        estoque: Number(formEstoque) || 0,
-        precoMedio: Number(formPrecoMedio) || 0,
-      }
+          <form onSubmit={handlePinSubmit}>
+            <div className="relative">
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="PIN de acesso"
+                autoFocus
+                className={`h-14 text-center text-2xl tracking-[0.5em] font-mono rounded-xl bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${pinError ? 'border-red-500 focus-visible:ring-red-500' : ''} ${pinShake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}
+              />
+            </div>
 
-      if (editingProduto) {
-        const res = await fetch('/api/produtos', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingProduto.id, ...body }),
-        })
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || 'Erro ao atualizar')
-        }
-        toast({ title: 'Produto atualizado', description: `"${formNome.trim()}" foi atualizado com sucesso.` })
-      } else {
-        const res = await fetch('/api/produtos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || 'Erro ao criar')
-        }
-        toast({ title: 'Produto criado', description: `"${formNome.trim()}" foi adicionado ao estoque.` })
-      }
+            <Button
+              type="submit"
+              className="w-full h-14 mt-4 text-lg font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+            >
+              Entrar
+            </Button>
+          </form>
 
-      setDialogProdutoOpen(false)
-      fetchAll()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado'
-      toast({ title: 'Erro', description: message, variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleDeleteProduto = async () => {
-    if (!deleteTarget) return
-    setSubmitting(true)
-    try {
-      const res = await fetch(`/api/produtos?id=${deleteTarget.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao excluir')
-      }
-      toast({ title: 'Produto excluído', description: `"${deleteTarget.nome}" foi removido permanentemente.` })
-      setDialogDeleteOpen(false)
-      setDeleteTarget(null)
-      fetchAll()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado'
-      toast({ title: 'Erro', description: message, variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // ==================== Entrada / Saída ====================
-
-  const openEntrada = (produto: Produto) => {
-    setSelectedProduto(produto)
-    setEntradaQuantidade('')
-    setEntradaPreco('')
-    setEntradaData(getTodayISO())
-    setEntradaObservacao('')
-    setDialogEntradaOpen(true)
-  }
-
-  const openSaida = (produto: Produto) => {
-    setSelectedProduto(produto)
-    setSaidaQuantidade('')
-    setSaidaData(getTodayISO())
-    setSaidaObservacao('')
-    setDialogSaidaOpen(true)
-  }
-
-  const handleSubmitEntrada = async () => {
-    if (!selectedProduto) return
-    const qty = Number(entradaQuantidade)
-    if (!qty || qty <= 0) {
-      toast({ title: 'Valor inválido', description: 'Informe uma quantidade válida maior que zero.', variant: 'destructive' })
-      return
-    }
-    const preco = Number(entradaPreco)
-    if (isNaN(preco) || preco < 0) {
-      toast({ title: 'Valor inválido', description: 'Informe um preço unitário válido.', variant: 'destructive' })
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/notas-entrada', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          produtoId: selectedProduto.id,
-          quantidade: qty,
-          preco,
-          dataNota: entradaData || undefined,
-          observacao: entradaObservacao.trim() || undefined,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao registrar entrada')
-      }
-      toast({ title: 'Entrada registrada', description: `+${qty} un. de "${selectedProduto.nome}" adicionadas ao estoque.` })
-      setDialogEntradaOpen(false)
-      fetchAll()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado'
-      toast({ title: 'Erro', description: message, variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleSubmitSaida = async () => {
-    if (!selectedProduto) return
-    const qty = Number(saidaQuantidade)
-    if (!qty || qty <= 0) {
-      toast({ title: 'Valor inválido', description: 'Informe uma quantidade válida maior que zero.', variant: 'destructive' })
-      return
-    }
-    if (qty > selectedProduto.estoque) {
-      toast({
-        title: 'Estoque insuficiente',
-        description: `Disponível: ${selectedProduto.estoque} un. Solicitado: ${qty} un.`,
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/notas-saida', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          produtoId: selectedProduto.id,
-          quantidade: qty,
-          dataNota: saidaData || undefined,
-          observacao: saidaObservacao.trim() || undefined,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao registrar saída')
-      }
-      toast({ title: 'Saída registrada', description: `-${qty} un. de "${selectedProduto.nome}" removidas do estoque.` })
-      setDialogSaidaOpen(false)
-      fetchAll()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado'
-      toast({ title: 'Erro', description: message, variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // ==================== Render: Produtos Tab ====================
-
-  const renderProdutosTab = () => (
-    <Card className="py-0">
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Package className="h-5 w-5 text-emerald-600" />
-            Produtos
-          </CardTitle>
-          <CardDescription>Gerencie o cadastro de produtos e movimentações de estoque</CardDescription>
+          {pinError && (
+            <p className="text-center text-red-400 text-sm mt-3 font-medium">
+              PIN incorreto. Tente novamente.
+            </p>
+          )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button onClick={openCreateProduto} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Produto
-          </Button>
-          <Button onClick={openEntradaLote} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
-            <ArrowDownCircle className="mr-2 h-4 w-4" />
-            Entrada em Lote
-          </Button>
-          <Button onClick={openSaidaLote} className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700">
-            <ArrowUpCircle className="mr-2 h-4 w-4" />
-            Saída em Lote
-          </Button>
-        </div>
-      </CardHeader>
-      <Separator />
-      <CardContent className="pt-4 px-0">
-        {loadingProdutos ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : produtos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Package className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground font-medium">Nenhum produto cadastrado</p>
-            <p className="text-muted-foreground text-sm mt-1">Clique em &quot;Novo Produto&quot; para começar</p>
-          </div>
-        ) : (
-          <div className="max-h-[520px] overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Nome</TableHead>
-                  <TableHead className="text-center">Estoque</TableHead>
-                  <TableHead className="text-right">Preço Médio</TableHead>
-                  <TableHead className="text-center hidden md:table-cell">Entradas</TableHead>
-                  <TableHead className="text-center hidden md:table-cell">Saídas</TableHead>
-                  <TableHead className="text-right pr-6">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {produtos.map((produto) => (
-                  <TableRow key={produto.id}>
-                    <TableCell className="pl-6 font-medium">{produto.nome}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={produto.estoque > 0 ? 'default' : 'destructive'} className="font-mono">
-                        {produto.estoque}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(produto.precoMedio)}</TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">{produto._count.entradas}</span>
-                    </TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      <span className="text-rose-600 dark:text-rose-400 font-medium">{produto._count.saidas}</span>
-                    </TableCell>
-                    <TableCell className="text-right pr-6">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                          onClick={() => openEntrada(produto)}
-                          title="Registrar Entrada"
-                        >
-                          <ArrowDownCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950"
-                          onClick={() => openSaida(produto)}
-                          title="Registrar Saída"
-                        >
-                          <ArrowUpCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => openEditProduto(produto)}
-                          title="Editar Produto"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            setDeleteTarget(produto)
-                            setDialogDeleteOpen(true)
-                          }}
-                          title="Excluir Produto"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-
-  // ==================== Render: Notas de Entrada Tab ====================
-
-  const renderNotasEntradaTab = () => (
-    <Card className="py-0">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
-          Notas de Entrada
-        </CardTitle>
-        <CardDescription>Histórico completo de todas as entradas de mercadorias no estoque</CardDescription>
-      </CardHeader>
-      <Separator />
-      <CardContent className="pt-4 px-0">
-        {loadingEntradas ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : notasEntrada.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <ArrowDownCircle className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground font-medium">Nenhuma nota de entrada registrada</p>
-            <p className="text-muted-foreground text-sm mt-1">As entradas aparecerão aqui ao registrar movimentações</p>
-          </div>
-        ) : (
-          <div className="max-h-[520px] overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Data</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead className="text-center">Quantidade</TableHead>
-                  <TableHead className="text-right">Preço Unit.</TableHead>
-                  <TableHead className="text-right">Valor Total</TableHead>
-                  <TableHead className="pr-6 hidden sm:table-cell">Observação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {notasEntrada.map((nota) => (
-                  <TableRow key={nota.id}>
-                    <TableCell className="pl-6 text-muted-foreground">{formatDate(nota.dataNota)}</TableCell>
-                    <TableCell className="font-medium">{nota.produto.nome}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 font-mono">
-                        +{nota.quantidade}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(nota.preco)}</TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                      {formatCurrency(nota.quantidade * nota.preco)}
-                    </TableCell>
-                    <TableCell className="pr-6 text-muted-foreground text-sm max-w-[200px] truncate hidden sm:table-cell">
-                      {nota.observacao || '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-
-  // ==================== Render: Relatório de Saídas Tab ====================
-
-  const renderRelatorioSaidasTab = () => (
-    <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="py-4">
-          <CardContent className="flex items-center gap-4 px-6 py-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-950">
-              <ShoppingCart className="h-6 w-6 text-rose-600 dark:text-rose-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total de Itens Saídos</p>
-              <p className="text-2xl font-bold">{totalItensSaidos.toLocaleString('pt-BR')}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="py-4">
-          <CardContent className="flex items-center gap-4 px-6 py-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950">
-              <DollarSign className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Valor Total das Saídas</p>
-              <p className="text-2xl font-bold">{formatCurrency(totalValorSaidas)}</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+    )
+  }
 
-      {/* Table */}
-      <Card className="py-0">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ArrowUpCircle className="h-5 w-5 text-rose-600" />
-            Relatório de Saídas
-          </CardTitle>
-          <CardDescription>Detalhamento de todas as saídas de produtos do estoque</CardDescription>
-        </CardHeader>
-        <Separator />
-        <CardContent className="pt-4 px-0">
-          {loadingSaidas ? (
-            <div className="flex items-center justify-center py-16">
+  // ==================== Render: Menu ====================
+
+  if (tela === 'menu') {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+        {/* Header */}
+        <header className="border-b bg-white/80 backdrop-blur-sm">
+          <div className="mx-auto max-w-2xl px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 shadow-lg shadow-emerald-600/20">
+                <Package className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">Controle de Estoque</h1>
+                <p className="text-xs text-muted-foreground">{produtos.length} produto(s) cadastrado(s)</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { setTela('pin'); setPin('') }}
+              title="Sair"
+            >
+              <Lock className="h-5 w-5 text-muted-foreground" />
+            </Button>
+          </div>
+        </header>
+
+        {/* Main */}
+        <main className="flex-1 flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-sm space-y-4">
+            <Button
+              onClick={openEntrada}
+              className="w-full h-24 text-lg font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 gap-3"
+            >
+              <ArrowDownCircle className="h-8 w-8" />
+              Entrada de Produtos
+            </Button>
+
+            <Button
+              onClick={openSaida}
+              className="w-full h-24 text-lg font-bold rounded-2xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/20 gap-3"
+            >
+              <ArrowUpCircle className="h-8 w-8" />
+              Saída de Produtos
+            </Button>
+
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setDialogNovoProduto(true)}
+                className="w-full h-12 rounded-xl gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Cadastrar Novo Produto
+              </Button>
+            </div>
+          </div>
+        </main>
+
+        {/* Dialog Novo Produto */}
+        <Dialog open={dialogNovoProduto} onOpenChange={setDialogNovoProduto}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Produto</DialogTitle>
+              <DialogDescription>Cadastre um novo produto no estoque.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Nome do Produto *</Label>
+                <Input
+                  placeholder="Ex: Camiseta Básica"
+                  value={novoNome}
+                  onChange={(e) => setNovoNome(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Estoque Inicial</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={novoEstoque}
+                    onChange={(e) => setNovoEstoque(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Preço Médio (R$)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={novoPreco}
+                    onChange={(e) => setNovoPreco(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogNovoProduto(false)} disabled={submitting}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCriarProduto} disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Cadastrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Excluir */}
+        <Dialog open={dialogExcluir} onOpenChange={setDialogExcluir}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Excluir Produto</DialogTitle>
+              <DialogDescription>
+                Excluir <strong>{excluirTarget?.nome}</strong>? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogExcluir(false)} disabled={submitting}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleExcluirProduto} disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Excluir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  // ==================== Render: Entrada ====================
+
+  if (tela === 'entrada') {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+        {/* Header */}
+        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+          <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setTela('menu')}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-emerald-700 flex items-center gap-2">
+                <ArrowDownCircle className="h-5 w-5" />
+                Entrada de Produtos
+              </h1>
+            </div>
+            <Badge variant="secondary" className="font-mono">
+              {totalEntradaItens} item(ns)
+            </Badge>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 mx-auto w-full max-w-3xl p-4 space-y-4">
+          {/* Referência */}
+          <div className="bg-white rounded-xl border p-4">
+            <Label className="text-sm font-medium text-muted-foreground">Referência / Nº Nota (opcional)</Label>
+            <Input
+              placeholder="Ex: NF 001234"
+              value={entradaRef}
+              onChange={(e) => setEntradaRef(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+
+          {/* Lista de Produtos */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : notasSaida.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <ArrowUpCircle className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground font-medium">Nenhuma saída registrada</p>
-              <p className="text-muted-foreground text-sm mt-1">As saídas aparecerão aqui ao registrar movimentações</p>
+          ) : produtos.length === 0 ? (
+            <div className="text-center py-20">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground">Nenhum produto cadastrado</p>
+              <Button variant="link" onClick={() => setTela('menu')} className="mt-2">
+                Voltar ao menu
+              </Button>
             </div>
           ) : (
-            <div className="max-h-[460px] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-6">Data</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead className="text-center">Quantidade</TableHead>
-                    <TableHead className="text-right">Preço Unit.</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
-                    <TableHead className="pr-6 hidden sm:table-cell">Observação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {notasSaida.map((nota) => (
-                    <TableRow key={nota.id}>
-                      <TableCell className="pl-6 text-muted-foreground">{formatDate(nota.dataNota)}</TableCell>
-                      <TableCell className="font-medium">{nota.produto.nome}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="destructive" className="font-mono">
-                          -{nota.quantidade}
+            <div className="space-y-3">
+              {itensEntrada.map((item) => {
+                const produto = getProdutoById(item.produtoId)
+                if (!produto) return null
+                const hasValue = Number(item.quantidade) > 0
+                return (
+                  <div
+                    key={produto.id}
+                    className={`bg-white rounded-xl border p-4 transition-all ${hasValue ? 'border-emerald-300 shadow-sm shadow-emerald-100 ring-1 ring-emerald-200' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-sm">{produto.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Estoque atual: <span className="font-mono font-medium">{produto.estoque}</span> un.
+                          {produto.precoMedio > 0 && (
+                            <span className="ml-2">Preço médio: {formatCurrency(produto.precoMedio)}</span>
+                          )}
+                        </p>
+                      </div>
+                      {hasValue && (
+                        <Badge className="bg-emerald-600 font-mono">
+                          +{item.quantidade} un.
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(nota.precoUnit)}</TableCell>
-                      <TableCell className="text-right font-mono font-medium">
-                        {formatCurrency(nota.quantidade * nota.precoUnit)}
-                      </TableCell>
-                      <TableCell className="pr-6 text-muted-foreground text-sm max-w-[200px] truncate hidden sm:table-cell">
-                        {nota.observacao || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Quantidade</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="0"
+                          value={item.quantidade}
+                          onChange={(e) => updateEntrada(produto.id, 'quantidade', e.target.value)}
+                          className="mt-1 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Preço Unit. (R$)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={item.preco}
+                          onChange={(e) => updateEntrada(produto.id, 'preco', e.target.value)}
+                          className="mt-1 font-mono"
+                        />
+                      </div>
+                    </div>
+                    {hasValue && Number(item.preco) > 0 && (
+                      <div className="mt-2 pt-2 border-t flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-semibold font-mono text-emerald-700">
+                          {formatCurrency(Number(item.quantidade) * Number(item.preco))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
-  )
 
-  // ==================== Render: Dialogs ====================
+          {/* Botão Fixo */}
+          {produtos.length > 0 && (
+            <div className="sticky bottom-0 pt-2 pb-2">
+              <Button
+                onClick={handleSubmitEntrada}
+                disabled={submitting || totalEntradaItens === 0}
+                className="w-full h-14 text-lg font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <ArrowDownCircle className="mr-2 h-5 w-5" />
+                )}
+                {submitting ? 'Processando...' : `Registrar Entrada (${totalEntradaItens})`}
+              </Button>
+            </div>
+          )}
+        </main>
+      </div>
+    )
+  }
 
-  const renderDialogProduto = () => (
-    <Dialog open={dialogProdutoOpen} onOpenChange={setDialogProdutoOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{editingProduto ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
-          <DialogDescription>
-            {editingProduto
-              ? 'Atualize as informações do produto abaixo.'
-              : 'Preencha os dados para cadastrar um novo produto no estoque.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="produto-nome">Nome do Produto *</Label>
-            <Input
-              id="produto-nome"
-              placeholder="Ex: Camiseta Básica"
-              value={formNome}
-              onChange={(e) => setFormNome(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="produto-estoque">Estoque Inicial</Label>
-              <Input
-                id="produto-estoque"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={formEstoque}
-                onChange={(e) => setFormEstoque(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="produto-preco">Preço Médio (R$)</Label>
-              <Input
-                id="produto-preco"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0,00"
-                value={formPrecoMedio}
-                onChange={(e) => setFormPrecoMedio(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogProdutoOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmitProduto} disabled={submitting}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {editingProduto ? 'Salvar Alterações' : 'Cadastrar Produto'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+  // ==================== Render: Saída ====================
 
-  const renderDialogEntrada = () => (
-    <Dialog open={dialogEntradaOpen} onOpenChange={setDialogEntradaOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
-            Registrar Entrada
-          </DialogTitle>
-          <DialogDescription>
-            Adicione estoque para <strong className="text-foreground">{selectedProduto?.nome}</strong>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="entrada-qtd">Quantidade *</Label>
-              <Input
-                id="entrada-qtd"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="0"
-                value={entradaQuantidade}
-                onChange={(e) => setEntradaQuantidade(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="entrada-preco">Preço Unitário (R$) *</Label>
-              <Input
-                id="entrada-preco"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0,00"
-                value={entradaPreco}
-                onChange={(e) => setEntradaPreco(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="entrada-data">Data</Label>
-            <Input
-              id="entrada-data"
-              type="date"
-              value={entradaData}
-              onChange={(e) => setEntradaData(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="entrada-obs">Observação</Label>
-            <Input
-              id="entrada-obs"
-              placeholder="Ex: Compra fornecedor X"
-              value={entradaObservacao}
-              onChange={(e) => setEntradaObservacao(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogEntradaOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmitEntrada} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar Entrada
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const renderDialogSaida = () => (
-    <Dialog open={dialogSaidaOpen} onOpenChange={setDialogSaidaOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowUpCircle className="h-5 w-5 text-rose-600" />
-            Registrar Saída
-          </DialogTitle>
-          <DialogDescription>
-            Remova estoque de <strong className="text-foreground">{selectedProduto?.nome}</strong>
-            {selectedProduto && (
-              <span className="block mt-1 text-sm">
-                Estoque disponível:{' '}
-                <Badge variant={selectedProduto.estoque > 0 ? 'default' : 'destructive'} className="ml-1 font-mono">
-                  {selectedProduto.estoque}
-                </Badge>
-              </span>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="saida-qtd">Quantidade *</Label>
-            <Input
-              id="saida-qtd"
-              type="number"
-              min="1"
-              max={selectedProduto?.estoque}
-              step="1"
-              placeholder="0"
-              value={saidaQuantidade}
-              onChange={(e) => setSaidaQuantidade(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="saida-data">Data</Label>
-            <Input
-              id="saida-data"
-              type="date"
-              value={saidaData}
-              onChange={(e) => setSaidaData(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="saida-obs">Observação</Label>
-            <Input
-              id="saida-obs"
-              placeholder="Ex: Venda para cliente Y"
-              value={saidaObservacao}
-              onChange={(e) => setSaidaObservacao(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogSaidaOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmitSaida} disabled={submitting} className="bg-rose-600 hover:bg-rose-700">
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar Saída
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const renderDialogDelete = () => (
-    <Dialog open={dialogDeleteOpen} onOpenChange={setDialogDeleteOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <Trash2 className="h-5 w-5" />
-            Confirmar Exclusão
-          </DialogTitle>
-          <DialogDescription>
-            Tem certeza que deseja excluir <strong className="text-foreground">{deleteTarget?.nome}</strong>?
-            <br />
-            Esta ação irá remover o produto e todas as suas notas de entrada e saída. Esta operação não pode ser desfeita.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogDeleteOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteProduto} disabled={submitting}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Excluir Permanentemente
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const renderDialogEntradaLote = () => (
-    <Dialog open={dialogEntradaLoteOpen} onOpenChange={setDialogEntradaLoteOpen}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
-            Entrada em Lote
-          </DialogTitle>
-          <DialogDescription>
-            Adicione múltiplos produtos ao estoque em uma única operação
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lote-entrada-data">Data</Label>
-              <Input
-                id="lote-entrada-data"
-                type="date"
-                value={loteEntradaData}
-                onChange={(e) => setLoteEntradaData(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lote-entrada-ref">Referência</Label>
-              <Input
-                id="lote-entrada-ref"
-                placeholder="Ex: Nota fiscal #1234"
-                value={loteEntradaRef}
-                onChange={(e) => setLoteEntradaRef(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lote-entrada-obs">Observação Geral</Label>
-            <Input
-              id="lote-entrada-obs"
-              placeholder="Ex: Compra do fornecedor X"
-              value={loteEntradaObs}
-              onChange={(e) => setLoteEntradaObs(e.target.value)}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              {loteEntradaItens.length} item(ns) adicionado(s)
-            </p>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto space-y-2">
-            {loteEntradaItens.map((item, idx) => (
-              <div key={item._tempId} className="flex items-start gap-2 rounded-lg border p-3 bg-muted/30">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-xs font-bold mt-2">
-                  {idx + 1}
-                </span>
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Produto</Label>
-                    <Select
-                      value={item.produtoId}
-                      onValueChange={(val) => updateEntradaLoteItem(item._tempId, 'produtoId', val)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecionar..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {produtos.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Quantidade</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="0"
-                      className="h-8"
-                      value={item.quantidade}
-                      onChange={(e) => updateEntradaLoteItem(item._tempId, 'quantidade', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Preço Unit. (R$)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0,00"
-                      className="h-8"
-                      value={item.preco}
-                      onChange={(e) => updateEntradaLoteItem(item._tempId, 'preco', e.target.value)}
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 mt-2"
-                  onClick={() => removeEntradaLoteItem(item._tempId)}
-                  disabled={loteEntradaItens.length <= 1}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-dashed"
-            onClick={addEntradaLoteItem}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar item
-          </Button>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogEntradaLoteOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmitEntradaLote} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Registrar Todas as Entradas
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const renderDialogSaidaLote = () => (
-    <Dialog open={dialogSaidaLoteOpen} onOpenChange={setDialogSaidaLoteOpen}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowUpCircle className="h-5 w-5 text-rose-600" />
-            Saída em Lote
-          </DialogTitle>
-          <DialogDescription>
-            Remova múltiplos produtos do estoque em uma única operação
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lote-saida-data">Data</Label>
-              <Input
-                id="lote-saida-data"
-                type="date"
-                value={loteSaidaData}
-                onChange={(e) => setLoteSaidaData(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lote-saida-ref">Referência</Label>
-              <Input
-                id="lote-saida-ref"
-                placeholder="Ex: Pedido #5678"
-                value={loteSaidaRef}
-                onChange={(e) => setLoteSaidaRef(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lote-saida-obs">Observação Geral</Label>
-            <Input
-              id="lote-saida-obs"
-              placeholder="Ex: Venda para cliente Y"
-              value={loteSaidaObs}
-              onChange={(e) => setLoteSaidaObs(e.target.value)}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              {loteSaidaItens.length} item(ns) adicionado(s)
-            </p>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto space-y-2">
-            {loteSaidaItens.map((item, idx) => (
-              <div key={item._tempId} className="flex items-start gap-2 rounded-lg border p-3 bg-muted/30">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-xs font-bold mt-2">
-                  {idx + 1}
-                </span>
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Produto</Label>
-                    <Select
-                      value={item.produtoId}
-                      onValueChange={(val) => updateSaidaLoteItem(item._tempId, 'produtoId', val)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecionar..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {produtos.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nome} (estoque: {p.estoque})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Quantidade</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="0"
-                      className="h-8"
-                      value={item.quantidade}
-                      onChange={(e) => updateSaidaLoteItem(item._tempId, 'quantidade', e.target.value)}
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 mt-2"
-                  onClick={() => removeSaidaLoteItem(item._tempId)}
-                  disabled={loteSaidaItens.length <= 1}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-dashed"
-            onClick={addSaidaLoteItem}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar item
-          </Button>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogSaidaLoteOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmitSaidaLote} disabled={submitting} className="bg-rose-600 hover:bg-rose-700">
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Registrar Todas as Saídas
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  // ==================== Main Render ====================
-
-  return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      {/* Header */}
-      <header className="border-b bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 shadow-lg shadow-emerald-600/20">
-              <Package className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-                Controle de Estoque
+  if (tela === 'saida') {
+    const comEstoque = produtos.filter(p => p.estoque > 0)
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+        {/* Header */}
+        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+          <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setTela('menu')}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-rose-700 flex items-center gap-2">
+                <ArrowUpCircle className="h-5 w-5" />
+                Saída de Produtos
               </h1>
-              <p className="text-sm text-muted-foreground">
-                Gerencie produtos, entradas e saídas em um só lugar
-              </p>
             </div>
+            <Badge variant="secondary" className="font-mono">
+              {totalSaidaItens} item(ns)
+            </Badge>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Tabs */}
-        <Tabs defaultValue="produtos" className="w-full">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="produtos" className="gap-1.5">
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Produtos</span>
-            </TabsTrigger>
-            <TabsTrigger value="entradas" className="gap-1.5">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Notas de Entrada</span>
-            </TabsTrigger>
-            <TabsTrigger value="saidas" className="gap-1.5">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Relatório de Saídas</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Content */}
+        <main className="flex-1 mx-auto w-full max-w-3xl p-4 space-y-4">
+          {/* Referência */}
+          <div className="bg-white rounded-xl border p-4">
+            <Label className="text-sm font-medium text-muted-foreground">Referência / Nº Nota (opcional)</Label>
+            <Input
+              placeholder="Ex: Pedido 5678"
+              value={saidaRef}
+              onChange={(e) => setSaidaRef(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
 
-          <TabsContent value="produtos" className="mt-4">
-            {renderProdutosTab()}
-          </TabsContent>
-          <TabsContent value="entradas" className="mt-4">
-            {renderNotasEntradaTab()}
-          </TabsContent>
-          <TabsContent value="saidas" className="mt-4">
-            {renderRelatorioSaidasTab()}
-          </TabsContent>
-        </Tabs>
-      </main>
+          {/* Lista de Produtos com Estoque */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : comEstoque.length === 0 ? (
+            <div className="text-center py-20">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground">Nenhum produto com estoque disponível</p>
+              <Button variant="link" onClick={() => setTela('menu')} className="mt-2">
+                Voltar ao menu
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {itensSaida.map((item) => {
+                const produto = getProdutoById(item.produtoId)
+                if (!produto) return null
+                const qty = Number(item.quantidade)
+                const excedeu = qty > produto.estoque && qty > 0
+                const hasValue = qty > 0
+                return (
+                  <div
+                    key={produto.id}
+                    className={`bg-white rounded-xl border p-4 transition-all ${
+                      excedeu
+                        ? 'border-red-400 ring-1 ring-red-300'
+                        : hasValue
+                          ? 'border-rose-300 shadow-sm shadow-rose-100 ring-1 ring-rose-200'
+                          : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-sm">{produto.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Estoque:{' '}
+                          <span className={`font-mono font-semibold ${excedeu ? 'text-red-600' : ''}`}>
+                            {produto.estoque}
+                          </span>{' '}
+                          un.
+                          {produto.precoMedio > 0 && (
+                            <span className="ml-2">
+                              R$ {produto.precoMedio.toFixed(2).replace('.', ',')}/un.
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {hasValue && !excedeu && (
+                        <Badge variant="destructive" className="font-mono">
+                          -{item.quantidade} un.
+                        </Badge>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        Quantidade a sair
+                        {excedeu && (
+                          <span className="text-red-500 ml-2 font-medium">Estoque insuficiente!</span>
+                        )}
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max={produto.estoque}
+                        step="1"
+                        placeholder="0"
+                        value={item.quantidade}
+                        onChange={(e) => updateSaida(produto.id, e.target.value)}
+                        className={`mt-1 font-mono ${excedeu ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      />
+                    </div>
+                    {hasValue && !excedeu && (
+                      <div className="mt-2 pt-2 border-t flex justify-between text-sm">
+                        <span className="text-muted-foreground">Valor da saída</span>
+                        <span className="font-semibold font-mono text-rose-700">
+                          {formatCurrency(qty * produto.precoMedio)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
-      {/* Footer */}
-      <footer className="border-t bg-white/60 dark:bg-slate-950/60 backdrop-blur-sm mt-auto">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-muted-foreground">
-            Sistema de Controle de Estoque &copy; {new Date().getFullYear()}
-          </p>
-        </div>
-      </footer>
+          {/* Botão Fixo */}
+          {comEstoque.length > 0 && (
+            <div className="sticky bottom-0 pt-2 pb-2">
+              <Button
+                onClick={handleSubmitSaida}
+                disabled={submitting || totalSaidaItens === 0}
+                className="w-full h-14 text-lg font-bold rounded-2xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/20 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <ArrowUpCircle className="mr-2 h-5 w-5" />
+                )}
+                {submitting ? 'Processando...' : `Registrar Saída (${totalSaidaItens})`}
+              </Button>
+            </div>
+          )}
+        </main>
+      </div>
+    )
+  }
 
-      {/* Dialogs */}
-      {renderDialogProduto()}
-      {renderDialogEntrada()}
-      {renderDialogSaida()}
-      {renderDialogDelete()}
-      {renderDialogEntradaLote()}
-      {renderDialogSaidaLote()}
-    </div>
-  )
+  // ==================== Fallback ====================
+
+  return null
 }
