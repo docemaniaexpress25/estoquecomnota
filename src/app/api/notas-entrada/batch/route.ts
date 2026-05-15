@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 
 export async function POST(request: Request) {
   try {
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
 
     const results = []
     const data = dataNota || new Date().toISOString().split('T')[0]
+
+    // Generate a batch ID for grouping
+    const loteId = `LOTE:${randomUUID()}`
 
     for (const item of items) {
       const produto = await db.produto.findUnique({ where: { id: item.produtoId } })
@@ -45,7 +49,7 @@ export async function POST(request: Request) {
           quantidade: qty,
           preco,
           dataNota: data,
-          observacao: [referencia, item.observacao, observacao].filter(Boolean).join(' | ') || null,
+          observacao: [loteId, referencia, item.observacao, observacao].filter(Boolean).join(' | ') || null,
         }
       })
 
