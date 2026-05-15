@@ -48,8 +48,7 @@ export async function POST(request: Request) {
           quantidade: qty,
           precoUnit: produto.precoMedio,
           dataNota: data,
-          referencia: referencia || null,
-          observacao: item.observacao || observacao || null,
+          observacao: [referencia, item.observacao, observacao].filter(Boolean).join(' | ') || null,
         }
       })
 

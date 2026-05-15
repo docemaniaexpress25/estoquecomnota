@@ -45,8 +45,7 @@ export async function POST(request: Request) {
           quantidade: qty,
           preco,
           dataNota: data,
-          referencia: referencia || null,
-          observacao: item.observacao || observacao || null,
+          observacao: [referencia, item.observacao, observacao].filter(Boolean).join(' | ') || null,
         }
       })
 
@@ -55,6 +54,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: `${results.length} entrada(s) registrada(s) com sucesso.`, count: results.length }, { status: 201 })
   } catch (error) {
-    return NextResponse.json({ error: 'Erro ao registrar entradas em lote.' }, { status: 500 })
+    console.error('ERRO ENTRADA BATCH:', error)
+    return NextResponse.json({ error: 'Erro ao registrar entradas em lote.', detail: String(error) }, { status: 500 })
   }
 }
