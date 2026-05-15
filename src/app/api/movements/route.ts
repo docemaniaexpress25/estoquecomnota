@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { type, items } = body // items: [{ productId, quantity }]
+    const { type, items, clientName } = body // items: [{ productId, quantity, salePrice? }]
 
     if (!type || !items || !items.length) {
       return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
@@ -36,16 +36,23 @@ export async function POST(request: Request) {
         )
       }
 
-      const total = product.costPrice * quantity
+      // Para SAIDA, usa o preço de venda informado ou o cadastrado no produto
+      // Para ENTRADA, usa o preço de custo
+      const unitPrice = type === 'SAIDA'
+        ? (item.salePrice !== undefined && item.salePrice > 0 ? parseFloat(item.salePrice) : product.salePrice)
+        : product.costPrice
+
+      const total = unitPrice * quantity
 
       const movement = await db.movement.create({
         data: {
           type,
           productId: item.productId,
           quantity,
-          unitPrice: product.costPrice,
+          unitPrice,
           total,
           cupomId,
+          clientName: type === 'SAIDA' ? (clientName || null) : null,
         },
       })
 
@@ -59,10 +66,11 @@ export async function POST(request: Request) {
       movements.push({
         ...movement,
         productName: product.name,
+        costPrice: product.costPrice,
       })
     }
 
-    return NextResponse.json({ cupomId, type, movements }, { status: 201 })
+    return NextResponse.json({ cupomId, type, clientName: clientName || null, movements }, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Erro ao registrar movimentação' }, { status: 500 })
   }
@@ -82,7 +90,7 @@ export async function GET(request: Request) {
       where: Object.keys(where).length > 0 ? where : undefined,
       include: { product: true },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 200,
     })
 
     return NextResponse.json(movements)

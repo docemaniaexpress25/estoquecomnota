@@ -11,6 +11,7 @@ model Product {
   id         String      @id @default(cuid())
   name       String
   costPrice  Float
+  salePrice  Float       @default(0)
   stock      Int         @default(0)
   movements  Movement[]
   createdAt  DateTime    @default(now())
@@ -19,12 +20,13 @@ model Product {
 
 model Movement {
   id        String   @id @default(cuid())
-  type      String   // "ENTRADA" ou "SAIDA"
+  type      String
   productId String
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Int
   unitPrice Float
   total     Float
   cupomId   String?
+  clientName String?
   createdAt DateTime @default(now())
 }

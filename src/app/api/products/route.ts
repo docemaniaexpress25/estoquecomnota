@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, costPrice, stock } = body
+    const { name, costPrice, salePrice, stock } = body
 
     if (!name || costPrice === undefined || stock === undefined) {
       return NextResponse.json({ error: 'Preencha todos os campos' }, { status: 400 })
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       data: {
         name: name.trim(),
         costPrice: parseFloat(costPrice),
+        salePrice: salePrice !== undefined ? parseFloat(salePrice) : 0,
         stock: parseInt(stock),
       },
     })
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { id, name, costPrice, stock } = body
+    const { id, name, costPrice, salePrice, stock } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
@@ -49,6 +50,7 @@ export async function PUT(request: Request) {
       data: {
         ...(name !== undefined && { name: name.trim() }),
         ...(costPrice !== undefined && { costPrice: parseFloat(costPrice) }),
+        ...(salePrice !== undefined && { salePrice: parseFloat(salePrice) }),
         ...(stock !== undefined && { stock: parseInt(stock) }),
       },
     })

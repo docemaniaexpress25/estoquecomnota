@@ -26,3 +26,28 @@ Stage Summary:
 - All API routes tested and compiling
 - ESLint passes clean
 - Dev server running on port 3000
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Optimize app - client name, sale price, improved receipt, stock value
+
+Work Log:
+- Updated Prisma schema: added salePrice (Float) to Product, clientName (String?) to Movement
+- Pushed schema to DB and regenerated Prisma Client
+- Updated /api/products to handle salePrice in POST and PUT
+- Updated /api/movements: clientName for SAIDA, sale price per item for SAIDA, cost price for ENTRADA
+- Redesigned Product Registration: 3-column layout (custo, venda, estoque), product list shows both prices
+- Redesigned Saída screen: added client name input with User icon, per-product sale price field + quantity, sticky total footer
+- Improved Cupom: receipt-style design with serrated edges, client name section, table header (Produto/Qtd/Unitário/Total), cost price reference on items, better copy-to-clipboard format
+- Added stock value card on Dashboard (total = sum of costPrice x stock for all products)
+- Updated Movements History: shows client name, per-item sale price reference
+- Renamed labels: "Saída" now shows as "Saída / Venda", history shows "Vendas"
+- ESLint passes clean
+
+Stage Summary:
+- Sale price (preço de venda) added per product and editable per sale
+- Client name required on all SAIDA operations, shown on receipt and history
+- Dashboard shows total stock value in highlighted card
+- Cupom redesigned as professional receipt with table layout
+- All changes backward-compatible (existing data uses defaults)
