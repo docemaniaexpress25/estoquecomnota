@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -20,16 +19,18 @@ import {
   Printer,
   User,
   Wallet,
-  TrendingUp,
+  Minus,
+  Plus,
+  ChevronDown,
+  CalendarDays,
 } from 'lucide-react'
 
 // Types
 interface Product {
   id: string
   name: string
-  costPrice: number
-  salePrice: number
   stock: number
+  averageCost: number
 }
 
 interface MovementItem {
@@ -38,11 +39,12 @@ interface MovementItem {
   productId: string
   quantity: number
   unitPrice: number
+  averageCost: number | null
   total: number
   cupomId: string | null
   clientName: string | null
   createdAt: string
-  product?: { name: string; costPrice: number; salePrice: number }
+  product?: { name: string }
 }
 
 // ========================
@@ -76,34 +78,40 @@ function PinScreen({ onAccess }: { onAccess: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
-      <div className="mb-8 text-center">
-        <Package className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-        <h1 className="text-white text-xl font-semibold">Estoque</h1>
-        <p className="text-zinc-500 text-sm mt-1">Digite o PIN para acessar</p>
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center px-4 pb-safe">
+      <div className="mb-10 text-center">
+        <div className="relative inline-block">
+          <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl scale-150" />
+          <div className="relative bg-zinc-800/80 rounded-2xl p-4 border border-zinc-700/50">
+            <Package className="w-10 h-10 text-emerald-400 mx-auto" />
+          </div>
+        </div>
+        <h1 className="text-white text-xl font-bold mt-5 tracking-tight">Estoque</h1>
+        <p className="text-zinc-500 text-sm mt-1.5">Digite o PIN para acessar</p>
       </div>
 
-      <div className={`flex gap-3 mb-8 ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
+      <div className={`flex gap-4 mb-10 ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className={`w-4 h-4 rounded-full transition-all duration-200 ${
-              i < pin.length ? 'bg-emerald-500 scale-110' : 'bg-zinc-700'
+            className={`w-4 h-4 rounded-full transition-all duration-300 ${
+              i < pin.length
+                ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)] scale-125'
+                : 'bg-zinc-700'
             }`}
           />
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 max-w-[240px]">
+      <div className="grid grid-cols-3 gap-3 w-full max-w-[300px]">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => (
-          <Button
+          <button
             key={key || 'empty'}
-            variant="ghost"
-            className={`h-16 text-xl font-medium rounded-2xl ${
+            className={`h-[4.5rem] text-xl font-medium rounded-2xl transition-all active:scale-95 ${
               key === 'del'
-                ? 'text-red-400 hover:text-red-300 hover:bg-zinc-800'
+                ? 'text-red-400 hover:text-red-300 hover:bg-zinc-800/80 active:bg-zinc-700'
                 : key
-                  ? 'text-white hover:bg-zinc-800 bg-zinc-900'
+                  ? 'text-white hover:bg-zinc-800/80 bg-zinc-800/50 border border-zinc-700/50 active:bg-zinc-700'
                   : 'invisible'
             }`}
             onClick={() => {
@@ -111,12 +119,12 @@ function PinScreen({ onAccess }: { onAccess: () => void }) {
               else if (key) handlePinInput(key)
             }}
           >
-            {key === 'del' ? <X className="w-6 h-6" /> : key}
-          </Button>
+            {key === 'del' ? <X className="w-6 h-6 mx-auto" /> : key}
+          </button>
         ))}
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           20% { transform: translateX(-10px); }
@@ -143,83 +151,97 @@ function Dashboard({
   todayMovements: number
   totalStockValue: number
 }) {
+  const today = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className="bg-zinc-950 text-white px-4 py-4">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-zinc-50 pb-8">
+      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-5 pt-safe pb-5">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold">Controle de Estoque</h1>
-            <p className="text-zinc-400 text-xs">
-              {productCount} produto{productCount !== 1 ? 's' : ''} cadastrado{productCount !== 1 ? 's' : ''}
+            <p className="text-zinc-400 text-xs uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <CalendarDays className="w-3.5 h-3.5" />
+              {today}
             </p>
+            <h1 className="text-xl font-bold mt-1 tracking-tight">Controle de Estoque</h1>
           </div>
-          <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 text-xs">
+          <Badge variant="secondary" className="bg-white/10 text-white/80 text-xs border-0 backdrop-blur-sm">
             {todayMovements} mov. hoje
           </Badge>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto p-4 space-y-3">
-        {/* Card de valor total em estoque */}
-        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-emerald-600" />
+      <div className="px-4 -mt-1 space-y-4">
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+          <CardContent className="p-5 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-xs text-emerald-600 font-medium">Valor Total em Estoque</p>
-                <p className="text-2xl font-bold text-emerald-700">
+                <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">Valor Total em Estoque</p>
+                <p className="text-3xl font-bold mt-0.5 tabular-nums tracking-tight">
                   R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
+            <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
+              <span className="text-emerald-100 text-xs">{productCount} produto{productCount !== 1 ? 's' : ''}</span>
+              <span className="text-emerald-100 text-xs">{todayMovements} movimentação{todayMovements !== 1 ? 'ões' : ''} hoje</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Button
-          className="w-full h-20 text-base bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap-3 rounded-xl"
-          onClick={() => onNavigate('entrada')}
-        >
-          <ArrowDownToLine className="w-6 h-6" />
-          <div className="text-left">
-            <div className="font-semibold">Entrada</div>
-            <div className="text-xs opacity-80">Registrar entrada de produtos</div>
-          </div>
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => onNavigate('entrada')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-emerald-100 flex items-center justify-center mb-3 group-active:bg-emerald-200 transition-colors">
+              <ArrowDownToLine className="w-5 h-5 text-emerald-600" />
+            </div>
+            <p className="font-semibold text-sm text-zinc-900">Entrada</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar entrada de produtos</p>
+          </button>
 
-        <Button
-          className="w-full h-20 text-base bg-orange-500 hover:bg-orange-600 text-white justify-start gap-3 rounded-xl"
-          onClick={() => onNavigate('saida')}
-        >
-          <ArrowUpFromLine className="w-6 h-6" />
-          <div className="text-left">
-            <div className="font-semibold">Saída</div>
-            <div className="text-xs opacity-80">Registrar venda/saída de produtos</div>
-          </div>
-        </Button>
+          <button
+            onClick={() => onNavigate('saida')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-red-100 flex items-center justify-center mb-3 group-active:bg-red-200 transition-colors">
+              <ArrowUpFromLine className="w-5 h-5 text-red-600" />
+            </div>
+            <p className="font-semibold text-sm text-zinc-900">Saída</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar venda/saída</p>
+          </button>
 
-        <Button
-          className="w-full h-20 text-base bg-zinc-900 hover:bg-zinc-800 text-white justify-start gap-3 rounded-xl"
-          onClick={() => onNavigate('produtos')}
-        >
-          <PackagePlus className="w-6 h-6" />
-          <div className="text-left">
-            <div className="font-semibold">Produtos</div>
-            <div className="text-xs opacity-80">Cadastrar e gerenciar</div>
-          </div>
-        </Button>
+          <button
+            onClick={() => onNavigate('produtos')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-zinc-100 flex items-center justify-center mb-3 group-active:bg-zinc-200 transition-colors">
+              <PackagePlus className="w-5 h-5 text-zinc-600" />
+            </div>
+            <p className="font-semibold text-sm text-zinc-900">Produtos</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Cadastrar e gerenciar</p>
+          </button>
 
-        <Button
-          className="w-full h-20 text-base bg-zinc-200 hover:bg-zinc-300 text-zinc-900 justify-start gap-3 rounded-xl"
-          onClick={() => onNavigate('movimentacoes')}
-        >
-          <History className="w-6 h-6" />
-          <div className="text-left">
-            <div className="font-semibold">Movimentações</div>
-            <div className="text-xs opacity-80">Histórico de entradas e saídas</div>
-          </div>
-        </Button>
+          <button
+            onClick={() => onNavigate('movimentacoes')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-zinc-100 flex items-center justify-center mb-3 group-active:bg-zinc-200 transition-colors">
+              <History className="w-5 h-5 text-zinc-600" />
+            </div>
+            <p className="font-semibold text-sm text-zinc-900">Histórico</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Entradas e saídas</p>
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -231,8 +253,6 @@ function Dashboard({
 function ProductsScreen({ onBack }: { onBack: () => void }) {
   const [products, setProducts] = useState<Product[]>([])
   const [name, setName] = useState('')
-  const [costPrice, setCostPrice] = useState('')
-  const [salePrice, setSalePrice] = useState('')
   const [stock, setStock] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -241,40 +261,56 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
   const [, startTransition] = useTransition()
 
   const loadProducts = useCallback(async () => {
-    const res = await fetch('/api/products')
-    const data = await res.json()
-    startTransition(() => setProducts(data))
-  }, [])
+    try {
+      const res = await fetch('/api/products')
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        startTransition(() => setProducts(data))
+      }
+    } catch {
+      toast({ title: 'Erro ao carregar produtos', variant: 'destructive' })
+    }
+  }, [toast, startTransition])
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
   const handleSubmit = async () => {
-    if (!name.trim() || !costPrice || !salePrice || !stock) {
-      toast({ title: 'Preencha todos os campos', variant: 'destructive' })
+    if (!name.trim()) {
+      toast({ title: 'Nome é obrigatório', variant: 'destructive' })
       return
     }
 
     setLoading(true)
     try {
       if (editingId) {
-        await fetch('/api/products', {
+        const res = await fetch('/api/products', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingId, name, costPrice, salePrice, stock }),
+          body: JSON.stringify({ id: editingId, name, stock: stock || undefined }),
         })
+        if (!res.ok) {
+          const data = await res.json()
+          toast({ title: data.error || 'Erro ao atualizar', variant: 'destructive' })
+          setLoading(false)
+          return
+        }
         toast({ title: 'Produto atualizado!' })
         setEditingId(null)
       } else {
-        await fetch('/api/products', {
+        const res = await fetch('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, costPrice, salePrice, stock }),
+          body: JSON.stringify({ name }),
         })
+        if (!res.ok) {
+          const data = await res.json()
+          toast({ title: data.error || 'Erro ao cadastrar', variant: 'destructive' })
+          setLoading(false)
+          return
+        }
         toast({ title: 'Produto cadastrado!' })
       }
       setName('')
-      setCostPrice('')
-      setSalePrice('')
       setStock('')
       loadProducts()
     } catch {
@@ -286,125 +322,118 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
   const handleEdit = (p: Product) => {
     setEditingId(p.id)
     setName(p.name)
-    setCostPrice(p.costPrice.toString())
-    setSalePrice(p.salePrice.toString())
-    setStock(p.stock.toString())
+    setStock(p.stock > 0 ? p.stock.toString() : '')
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deletar este produto?')) return
-    await fetch(`/api/products?id=${id}`, { method: 'DELETE' })
-    toast({ title: 'Produto removido' })
-    loadProducts()
+    if (!confirm('Deletar este produto e todas suas entradas/movimentações?')) return
+    try {
+      const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json()
+        toast({ title: data.error || 'Erro ao deletar', variant: 'destructive' })
+        return
+      }
+      toast({ title: 'Produto removido' })
+      loadProducts()
+    } catch {
+      toast({ title: 'Erro ao deletar', variant: 'destructive' })
+    }
   }
 
   const cancelEdit = () => {
     setEditingId(null)
     setName('')
-    setCostPrice('')
-    setSalePrice('')
     setStock('')
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className="bg-zinc-950 text-white px-4 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-zinc-800" onClick={onBack}>
+    <div className="min-h-screen bg-zinc-50 pb-8">
+      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
             <X className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Produtos</h1>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto p-4 space-y-4">
-        <Card className="border-zinc-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-zinc-500">
+      <div className="px-4 pt-4 space-y-4">
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3 px-4 pt-4">
+            <CardTitle className="text-sm text-zinc-500 font-medium">
               {editingId ? 'Editar Produto' : 'Novo Produto'}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="px-4 pb-4 space-y-3">
             <Input
               placeholder="Nome do produto"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="h-11"
             />
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <label className="text-[11px] text-zinc-400 font-medium">Preço de Custo</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={costPrice}
-                  onChange={(e) => setCostPrice(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] text-zinc-400 font-medium">Preço de Venda</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={salePrice}
-                  onChange={(e) => setSalePrice(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
+            {editingId && (
+              <div className="space-y-1.5">
                 <label className="text-[11px] text-zinc-400 font-medium">Estoque</label>
                 <Input
                   type="number"
                   placeholder="0"
                   value={stock}
                   onChange={(e) => setStock(e.target.value)}
+                  className="h-11 text-sm"
                 />
+                <p className="text-[10px] text-zinc-400">Ajuste manual. Entradas/saídas movem o estoque automaticamente.</p>
               </div>
-            </div>
-            <div className="flex gap-2">
+            )}
+            <div className="flex gap-2 pt-1">
               <Button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl"
               >
                 {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Cadastrar'}
               </Button>
               {editingId && (
-                <Button variant="outline" onClick={cancelEdit}>Cancelar</Button>
+                <Button variant="outline" onClick={cancelEdit} className="h-11 rounded-xl">Cancelar</Button>
               )}
             </div>
           </CardContent>
         </Card>
 
         <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {products.length === 0 && (
-              <p className="text-center text-zinc-400 py-8 text-sm">Nenhum produto cadastrado</p>
+              <p className="text-center text-zinc-400 py-12 text-sm">Nenhum produto cadastrado</p>
             )}
             {products.map((p) => (
-              <Card key={p.id} className="border-zinc-200">
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{p.name}</p>
-                    <div className="flex gap-3 mt-1">
-                      <span className="text-xs text-zinc-500">
-                        Custo: R$ {p.costPrice.toFixed(2)}
-                      </span>
-                      <span className="text-xs text-emerald-600 font-medium">
-                        Venda: R$ {p.salePrice.toFixed(2)}
-                      </span>
+              <Card key={p.id} className="border-0 shadow-sm overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex">
+                    <div className={`w-1 shrink-0 ${p.stock > 0 ? 'bg-emerald-500' : 'bg-red-400'}`} />
+                    <div className="flex-1 p-3.5 flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{p.name}</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className="text-xs text-zinc-500">
+                            Custo médio: R$ {p.averageCost.toFixed(2)}
+                          </span>
+                        </div>
+                        <span className={`text-xs font-medium mt-1 inline-block ${p.stock > 0 ? 'text-zinc-500' : 'text-red-500'}`}>
+                          Estoque: {p.stock} un.
+                          {p.stock > 0 && p.averageCost > 0 && (
+                            <> · Valor: R$ {(p.stock * p.averageCost).toFixed(2)}</>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex gap-0.5 ml-3">
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleEdit(p)}>
+                          <Edit3 className="w-4 h-4 text-zinc-400" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleDelete(p.id)}>
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </Button>
+                      </div>
                     </div>
-                    <span className="text-xs text-zinc-400">
-                      Estoque: {p.stock} un.
-                    </span>
-                  </div>
-                  <div className="flex gap-1 ml-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(p)}>
-                      <Edit3 className="w-4 h-4 text-zinc-500" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
-                      <Trash2 className="w-4 h-4 text-red-400" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -431,7 +460,9 @@ function MovementScreen({
   const isEntrada = type === 'ENTRADA'
   const [products, setProducts] = useState<Product[]>([])
   const [quantities, setQuantities] = useState<Record<string, string>>({})
+  const [costPrices, setCostPrices] = useState<Record<string, string>>({})
   const [salePrices, setSalePrices] = useState<Record<string, string>>({})
+  const [averageCosts, setAverageCosts] = useState<Record<string, number>>({})
   const [clientName, setClientName] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
@@ -439,13 +470,11 @@ function MovementScreen({
 
   useEffect(() => {
     fetch('/api/products').then((r) => r.json()).then((data: Product[]) => {
+      if (!Array.isArray(data)) return
       setProducts(data)
-      // Preencher preço de venda padrão
-      const defaults: Record<string, string> = {}
-      data.forEach((p) => {
-        defaults[p.id] = p.salePrice.toString()
-      })
-      setSalePrices(defaults)
+      const avgs: Record<string, number> = {}
+      data.forEach((p) => { avgs[p.id] = p.averageCost })
+      setAverageCosts(avgs)
     })
   }, [])
 
@@ -453,8 +482,20 @@ function MovementScreen({
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const setQty = (id: string, val: string) => {
+  const getQty = (id: string) => parseInt(quantities[id] || '0') || 0
+
+  const adjustQty = (id: string, delta: number) => {
+    const current = getQty(id)
+    const next = Math.max(0, current + delta)
+    setQuantities((prev) => ({ ...prev, [id]: next === 0 ? '' : String(next) }))
+  }
+
+  const handleQtyInput = (id: string, val: string) => {
     setQuantities((prev) => ({ ...prev, [id]: val }))
+  }
+
+  const setCost = (id: string, val: string) => {
+    setCostPrices((prev) => ({ ...prev, [id]: val }))
   }
 
   const setSale = (id: string, val: string) => {
@@ -466,16 +507,16 @@ function MovementScreen({
     .map(([productId, quantity]) => ({
       productId,
       quantity: parseInt(quantity),
+      costPrice: costPrices[productId] || '0',
       salePrice: salePrices[productId] || '0',
     }))
 
   const totalItems = selectedItems.reduce((sum, i) => sum + i.quantity, 0)
   const totalValue = selectedItems.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId)
-    const price = isEntrada
-      ? (product?.costPrice || 0)
-      : parseFloat(item.salePrice) || 0
-    return sum + price * item.quantity
+    if (isEntrada) {
+      return sum + (parseFloat(item.costPrice) || 0) * item.quantity
+    }
+    return sum + (parseFloat(item.salePrice) || 0) * item.quantity
   }, 0)
 
   const handleSubmit = async () => {
@@ -484,9 +525,27 @@ function MovementScreen({
       return
     }
 
-    if (!isEntrada && !clientName.trim()) {
-      toast({ title: 'Informe o nome do cliente', variant: 'destructive' })
+    if (!clientName.trim()) {
+      toast({ title: isEntrada ? 'Informe o nome do fornecedor' : 'Informe o nome do cliente', variant: 'destructive' })
       return
+    }
+
+    if (isEntrada) {
+      const missingCost = selectedItems.find(i => !i.costPrice || parseFloat(i.costPrice) <= 0)
+      if (missingCost) {
+        const p = products.find(pr => pr.id === missingCost.productId)
+        toast({ title: `Informe o custo para ${p?.name || 'o produto'}`, variant: 'destructive' })
+        return
+      }
+    }
+
+    if (!isEntrada) {
+      const missingSale = selectedItems.find(i => !i.salePrice || parseFloat(i.salePrice) <= 0)
+      if (missingSale) {
+        const p = products.find(pr => pr.id === missingSale.productId)
+        toast({ title: `Informe o preço de venda para ${p?.name || 'o produto'}`, variant: 'destructive' })
+        return
+      }
     }
 
     setLoading(true)
@@ -497,7 +556,7 @@ function MovementScreen({
         body: JSON.stringify({
           type,
           items: selectedItems,
-          clientName: isEntrada ? null : clientName.trim(),
+          clientName: clientName.trim(),
         }),
       })
       const data = await res.json()
@@ -516,142 +575,183 @@ function MovementScreen({
     setLoading(false)
   }
 
+  const accentColor = isEntrada
+    ? { active: 'bg-emerald-50 border-emerald-300', btn: 'bg-emerald-500 hover:bg-emerald-600 text-white', badge: 'bg-emerald-500/15 text-emerald-700' }
+    : { active: 'bg-red-50 border-red-300', btn: 'bg-red-500 hover:bg-red-600 text-white', badge: 'bg-red-500/15 text-red-700' }
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className={`text-white px-4 py-4 ${isEntrada ? 'bg-emerald-700' : 'bg-orange-500'}`}>
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+      <header className={`text-white px-4 py-4 pt-safe shrink-0 ${
+        isEntrada
+          ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
+          : 'bg-gradient-to-br from-red-500 to-red-600'
+      }`}>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={onBack}>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
               <X className="w-5 h-5" />
             </Button>
-            <h1 className="text-lg font-semibold">
-              {isEntrada ? 'Entrada' : 'Saída / Venda'}
-            </h1>
+            <div>
+              <h1 className="text-lg font-bold">
+                {isEntrada ? 'Entrada' : 'Venda'}
+              </h1>
+              <p className="text-[11px] opacity-70">
+                {isEntrada ? 'Registrar entrada' : 'Registrar venda'}
+              </p>
+            </div>
           </div>
           <div className="text-right">
-            <Badge variant="secondary" className={`${isEntrada ? 'bg-emerald-600' : 'bg-orange-600'} text-white text-xs`}>
-              {totalItems} {totalItems === 1 ? 'item' : 'itens'}
-            </Badge>
-            <p className="text-[11px] mt-1 opacity-80 font-medium">
+            <p className="text-xl font-bold tabular-nums">
               R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-[11px] opacity-70">
+              {totalItems} {totalItems === 1 ? 'item' : 'itens'}
             </p>
           </div>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto p-4 space-y-3">
-        {/* Campo nome do cliente (só na saída) */}
-        {!isEntrada && (
-          <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl p-3">
-            <User className="w-5 h-5 text-orange-500 shrink-0" />
-            <Input
-              placeholder="Nome do cliente"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              className="border-0 shadow-none p-0 h-auto text-base focus-visible:ring-0"
-            />
-          </div>
-        )}
+      <div className="w-full px-4 pt-4 space-y-3 flex-1 flex flex-col min-h-0">
+        <div className="flex items-center gap-2.5 bg-white border border-zinc-200 shadow-sm rounded-xl px-3.5 py-3 shrink-0">
+          <User className={`w-4 h-4 shrink-0 ${isEntrada ? 'text-emerald-500' : 'text-red-500'}`} />
+          <input
+            type="text"
+            placeholder={isEntrada ? 'Nome do fornecedor' : 'Nome do cliente'}
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            className="flex-1 outline-none text-sm bg-transparent min-w-0"
+          />
+        </div>
 
-        <Input
-          placeholder="Buscar produto..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="shrink-0">
+          <Input
+            placeholder="Buscar produto..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-10 text-sm shadow-sm border-zinc-200 rounded-xl"
+          />
+        </div>
 
-        <ScrollArea className="max-h-[50vh]">
+        <div className="flex-1 min-h-0 overflow-y-auto pb-2">
           <div className="space-y-2">
             {filtered.length === 0 && (
-              <p className="text-center text-zinc-400 py-8 text-sm">
+              <p className="text-center text-zinc-400 py-12 text-sm">
                 {search ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
               </p>
             )}
             {filtered.map((p) => {
-              const qty = quantities[p.id]
-              const isActive = qty && parseInt(qty) > 0
-              return (
-                <Card
-                  key={p.id}
-                  className={`border-2 transition-all ${
-                    isActive
-                      ? isEntrada
-                        ? 'border-emerald-400 bg-emerald-50/50'
-                        : 'border-orange-400 bg-orange-50/50'
-                      : 'border-zinc-200'
-                  }`}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{p.name}</p>
-                        <div className="flex gap-3 mt-0.5">
-                          {isEntrada ? (
-                            <span className="text-xs text-zinc-500">
-                              Custo: R$ {p.costPrice.toFixed(2)}
-                            </span>
-                          ) : (
-                            <>
-                              <span className="text-xs text-zinc-400">
-                                Custo: R$ {p.costPrice.toFixed(2)}
-                              </span>
-                              <span className="text-xs text-orange-600 font-medium">
-                                Venda: R$ {p.salePrice.toFixed(2)}
-                              </span>
-                            </>
-                          )}
-                          <span className="text-xs text-zinc-500">
-                            Estoque: {p.stock}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+              const qty = getQty(p.id)
+              const isActive = qty > 0
+              const avgCost = averageCosts[p.id] || 0
 
+              return (
+                <div
+                  key={p.id}
+                  className={`border rounded-xl p-3 transition-all shadow-sm ${isActive ? accentColor.active : 'border-zinc-200 bg-white'}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1 min-w-0 mr-2">
+                      <p className="text-sm font-semibold truncate leading-tight">{p.name}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${isActive ? accentColor.badge : 'bg-zinc-100 text-zinc-400'}`}>
+                      {p.stock} un.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     {isEntrada ? (
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="Quantidade"
-                        value={quantities[p.id] || ''}
-                        onChange={(e) => setQty(p.id, e.target.value)}
-                        className="h-9 text-sm"
-                      />
+                      <div className="shrink-0">
+                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo (R$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={costPrices[p.id] || ''}
+                          onChange={(e) => setCost(p.id, e.target.value)}
+                          className="w-[72px] text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-right tabular-nums h-8"
+                        />
+                      </div>
                     ) : (
-                      <div className="grid grid-cols-5 gap-2">
-                        <div className="col-span-3">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Preço venda (R$)"
-                            value={salePrices[p.id] || ''}
-                            onChange={(e) => setSale(p.id, e.target.value)}
-                            className="h-9 text-sm"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder="Qtd"
-                            value={quantities[p.id] || ''}
-                            onChange={(e) => setQty(p.id, e.target.value)}
-                            className="h-9 text-sm"
-                          />
-                        </div>
+                      <div className="shrink-0">
+                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Venda (R$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={salePrices[p.id] || ''}
+                          onChange={(e) => setSale(p.id, e.target.value)}
+                          className="w-[72px] text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-red-400 text-right tabular-nums h-8"
+                        />
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+
+                    {!isEntrada && avgCost > 0 && (
+                      <div className="shrink-0">
+                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo médio</label>
+                        <span className="text-[10px] text-amber-600 font-medium tabular-nums flex items-center h-8">
+                          R$ {avgCost.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex-1" />
+
+                    {isActive && (
+                      <span className="text-xs font-bold text-zinc-700 mr-1 shrink-0 tabular-nums">
+                        R$ {(isEntrada
+                          ? (parseFloat(costPrices[p.id] || '0') * qty)
+                          : (parseFloat(salePrices[p.id] || '0') * qty)
+                        ).toFixed(2)}
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => adjustQty(p.id, -1)}
+                        disabled={qty <= 0}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                          qty > 0
+                            ? 'bg-zinc-200 hover:bg-zinc-300 text-zinc-700 active:bg-zinc-400'
+                            : 'bg-zinc-100 text-zinc-300'
+                        }`}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={qty || ''}
+                        onChange={(e) => handleQtyInput(p.id, e.target.value)}
+                        placeholder="0"
+                        className={`w-12 h-10 text-center text-sm font-bold rounded-xl border outline-none tabular-nums ${
+                          isActive
+                            ? isEntrada
+                              ? 'border-emerald-300 bg-white'
+                              : 'border-red-300 bg-white'
+                            : 'border-zinc-200 bg-zinc-50 text-zinc-800'
+                        }`}
+                      />
+
+                      <button
+                        onClick={() => adjustQty(p.id, 1)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${accentColor.btn}`}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )
             })}
           </div>
-        </ScrollArea>
+        </div>
 
-        {/* Rodapé fixo com total e botão */}
         {selectedItems.length > 0 && (
-          <div className="bg-white border border-zinc-200 rounded-xl p-3 space-y-2 sticky bottom-4">
+          <div className="bg-white border border-zinc-200 shadow-lg rounded-2xl p-4 space-y-3 shrink-0 mt-2">
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-500">{selectedItems.length} produto{selectedItems.length !== 1 ? 's' : ''}</span>
-              <span className="font-bold text-lg">
+              <span className="text-zinc-500">{selectedItems.length} produto{selectedItems.length !== 1 ? 's' : ''} · {totalItems} {totalItems === 1 ? 'item' : 'itens'}</span>
+              <span className="font-bold text-lg tabular-nums">
                 R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -661,15 +761,14 @@ function MovementScreen({
               className={`w-full h-12 text-base font-semibold text-white rounded-xl ${
                 isEntrada
                   ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : 'bg-orange-500 hover:bg-orange-600'
+                  : 'bg-red-500 hover:bg-red-600'
               }`}
             >
               {loading
                 ? 'Registrando...'
                 : isEntrada
-                  ? `Confirmar Entrada`
-                  : `Confirmar Venda${clientName ? ` - ${clientName}` : ''}`
-              }
+                  ? 'Confirmar Entrada'
+                  : 'Confirmar Venda'}
             </Button>
           </div>
         )}
@@ -689,12 +788,16 @@ function CupomScreen({
   onBack: () => void
 }) {
   const [movements, setMovements] = useState<MovementItem[]>([])
+  const [deleted, setDeleted] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     fetch(`/api/movements?cupomId=${cupomId}`)
       .then((r) => r.json())
-      .then((data) => setMovements(data))
+      .then((data) => {
+        if (Array.isArray(data)) setMovements(data)
+      })
   }, [cupomId])
 
   const totalGeral = movements.reduce((sum, m) => sum + m.total, 0)
@@ -706,12 +809,42 @@ function CupomScreen({
     : ''
   const shortId = cupomId.slice(0, 8).toUpperCase()
 
+  const totalCost = movements.reduce((sum, m) => sum + ((m.averageCost || 0) * m.quantity), 0)
+  const profit = totalGeral - totalCost
+
+  const handleDelete = async () => {
+    if (!confirm(`Excluir esta ${movements[0]?.type === 'ENTRADA' ? 'entrada' : 'venda'}?\nO estoque será revertido automaticamente.`)) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/movements?cupomId=${cupomId}`, { method: 'DELETE' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({ title: data.error || 'Erro ao excluir', variant: 'destructive' })
+        setDeleting(false)
+        return
+      }
+
+      toast({ title: `${movements[0]?.type === 'ENTRADA' ? 'Entrada' : 'Venda'} excluída! Estoque revertido.` })
+      setDeleted(true)
+    } catch {
+      toast({ title: 'Erro ao excluir', variant: 'destructive' })
+    }
+    setDeleting(false)
+  }
+
   const handleCopy = () => {
     const separator = '------------------------------------------------'
-    const itemLines = movements.map(
-      (m) =>
-        `  ${String(m.quantity).padStart(3)}x  ${(m.product?.name || 'Produto').padEnd(22)} ${m.unitPrice.toFixed(2).padStart(7)}  ${(m.total.toFixed(2)).padStart(10)}`
-    )
+    const itemLines = movements.map((m) => {
+      if (m.type === 'ENTRADA') {
+        return `  ${String(m.quantity).padStart(3)}x  ${(m.product?.name || 'Produto').padEnd(22)} ${m.unitPrice.toFixed(2).padStart(7)}  ${m.total.toFixed(2).padStart(10)}`
+      }
+      return `  ${String(m.quantity).padStart(3)}x  ${(m.product?.name || 'Produto').padEnd(18)} ${m.unitPrice.toFixed(2).padStart(7)}  ${(m.averageCost || 0).toFixed(2).padStart(7)}  ${m.total.toFixed(2).padStart(10)}`
+    })
+    const headerLine = isEntrada
+      ? '  QTD  PRODUTO                   CUSTO      TOTAL'
+      : '  QTD  PRODUTO              VENDA  CUSTO_M     TOTAL'
     const text = [
       '',
       '             CONTROLE DE ESTOQUE',
@@ -719,16 +852,18 @@ function CupomScreen({
       `  ${isEntrada ? 'ENTRADA DE MERCADORIA' : '   COMPROVANTE DE VENDA'}`,
       '',
       `  Data: ${date}`,
-      clientName ? `  Cliente: ${clientName}` : '',
+      clientName ? `  ${isEntrada ? 'Fornecedor' : 'Cliente'}: ${clientName}` : '',
       '',
       separator,
-      '  QTD  PRODUTO                   PRECO      TOTAL',
+      headerLine,
       separator,
       ...itemLines,
       separator,
       '',
       `  Total de itens: ${totalQtd}`,
       `  VALOR TOTAL: R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      !isEntrada ? `  Custo total:  R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '',
+      !isEntrada ? `  Lucro:        R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '',
       '',
       `  Cupom: #${shortId}`,
       '',
@@ -741,11 +876,15 @@ function CupomScreen({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100">
-      <header className={`text-white px-4 py-4 ${isEntrada ? 'bg-emerald-700' : 'bg-orange-500'}`}>
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-zinc-100 pb-safe">
+      <header className={`text-white px-4 py-4 pt-safe ${
+        isEntrada
+          ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
+          : 'bg-gradient-to-br from-red-500 to-red-600'
+      }`}>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={onBack}>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
               <X className="w-5 h-5" />
             </Button>
             <h1 className="text-lg font-semibold">
@@ -755,7 +894,7 @@ function CupomScreen({
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20"
+            className="text-white hover:bg-white/15"
             onClick={handleCopy}
           >
             <Printer className="w-5 h-5" />
@@ -763,12 +902,9 @@ function CupomScreen({
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto p-4">
-        {/* Cupom estilizado */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {/* Header do cupom - estilo recibo */}
-          <div className="bg-zinc-900 text-white text-center py-5 px-4 relative">
-            {/* Serrilhado superior */}
+      <div className="px-4 pt-4">
+        <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+          <div className="bg-zinc-900 text-white text-center py-6 px-4 relative">
             <div className="absolute top-0 left-0 right-0 h-3 bg-zinc-100 rounded-b-3xl" />
             <div className="relative z-10 mt-2">
               <Package className="w-7 h-7 mx-auto mb-2 text-emerald-400" />
@@ -780,70 +916,111 @@ function CupomScreen({
             </div>
           </div>
 
-          {/* Nome do cliente */}
           {clientName && (
-            <div className="bg-orange-50 border-b border-orange-100 px-4 py-3">
+            <div className={`${isEntrada ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} border-b px-4 py-3`}>
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-orange-500" />
-                <span className="text-xs text-orange-600 font-medium uppercase tracking-wide">Cliente</span>
+                <User className={`w-4 h-4 ${isEntrada ? 'text-emerald-500' : 'text-red-500'}`} />
+                <span className={`text-xs font-medium uppercase tracking-wide ${isEntrada ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {isEntrada ? 'Fornecedor' : 'Cliente'}
+                </span>
               </div>
               <p className="font-semibold text-sm mt-0.5">{clientName}</p>
             </div>
           )}
 
-          {/* Lista de itens */}
           <div className="px-4 py-3">
-            <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
-              <span className="flex-1">Produto</span>
-              <span className="w-12 text-right">Qtd</span>
-              <span className="w-16 text-right">Unitário</span>
-              <span className="w-20 text-right">Total</span>
-            </div>
-
-            {movements.map((m, i) => (
-              <div key={m.id}>
-                <div className="flex items-center py-2.5 px-1">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-zinc-800 truncate">
-                      {m.product?.name || 'Produto'}
-                    </p>
-                    {!isEntrada && m.product && (
-                      <p className="text-[10px] text-zinc-400">
-                        custo: R$ {m.product.costPrice.toFixed(2)}
-                      </p>
+            {isEntrada ? (
+              <>
+                <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
+                  <span className="flex-1">Produto</span>
+                  <span className="w-10 text-right">Qtd</span>
+                  <span className="w-16 text-right">Custo</span>
+                  <span className="w-20 text-right">Total</span>
+                </div>
+                {movements.map((m, i) => (
+                  <div key={m.id}>
+                    <div className="flex items-center py-2.5 px-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 truncate">
+                          {m.product?.name || 'Produto'}
+                        </p>
+                      </div>
+                      <span className="w-10 text-right text-sm text-zinc-600">{m.quantity}</span>
+                      <span className="w-16 text-right text-sm text-zinc-600 tabular-nums">
+                        R$ {m.unitPrice.toFixed(2)}
+                      </span>
+                      <span className="w-20 text-right text-sm font-semibold text-zinc-800 tabular-nums">
+                        R$ {m.total.toFixed(2)}
+                      </span>
+                    </div>
+                    {i < movements.length - 1 && (
+                      <div className="border-b border-dashed border-zinc-200 mx-1" />
                     )}
                   </div>
-                  <span className="w-12 text-right text-sm text-zinc-600">{m.quantity}</span>
-                  <span className="w-16 text-right text-sm text-zinc-600">
-                    R$ {m.unitPrice.toFixed(2)}
-                  </span>
-                  <span className="w-20 text-right text-sm font-semibold text-zinc-800">
-                    R$ {m.total.toFixed(2)}
-                  </span>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
+                  <span className="flex-1">Produto</span>
+                  <span className="w-10 text-right">Qtd</span>
+                  <span className="w-16 text-right">Venda</span>
+                  <span className="w-16 text-right">Custo M.</span>
+                  <span className="w-20 text-right">Total</span>
                 </div>
-                {i < movements.length - 1 && <Separator />}
-              </div>
-            ))}
+                {movements.map((m, i) => (
+                  <div key={m.id}>
+                    <div className="flex items-center py-2.5 px-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 truncate">
+                          {m.product?.name || 'Produto'}
+                        </p>
+                      </div>
+                      <span className="w-10 text-right text-sm text-zinc-600">{m.quantity}</span>
+                      <span className="w-16 text-right text-sm text-zinc-600 tabular-nums">
+                        R$ {m.unitPrice.toFixed(2)}
+                      </span>
+                      <span className="w-16 text-right text-xs text-amber-600 tabular-nums">
+                        R$ {(m.averageCost || 0).toFixed(2)}
+                      </span>
+                      <span className="w-20 text-right text-sm font-semibold text-zinc-800 tabular-nums">
+                        R$ {m.total.toFixed(2)}
+                      </span>
+                    </div>
+                    {i < movements.length - 1 && (
+                      <div className="border-b border-dashed border-zinc-200 mx-1" />
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
-          {/* Total */}
           <div className="border-t-2 border-zinc-900 px-4 py-4">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-zinc-400">{totalQtd} {totalQtd === 1 ? 'item' : 'itens'}</p>
+                {!isEntrada && (
+                  <p className="text-[10px] text-amber-600 mt-0.5">
+                    Custo médio total: R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {profit >= 0 ? (
+                      <span className="text-emerald-600 ml-2">+R$ {profit.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-red-500 ml-2">R$ {profit.toFixed(2)}</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Total</p>
-                <p className="text-2xl font-bold text-zinc-900">
+                <p className="text-2xl font-bold text-zinc-900 tabular-nums">
                   R$ {totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Footer do cupom */}
-          <div className="bg-zinc-50 border-t border-zinc-100 px-4 py-3 text-center relative">
-            {/* Serrilhado inferior */}
+          <div className="bg-zinc-50 border-t border-dashed border-zinc-200 px-4 py-3 text-center relative">
             <div className="absolute bottom-0 left-0 right-0 h-3 bg-zinc-100 rounded-t-3xl" />
             <div className="relative z-10 mb-2">
               <p className="text-[10px] text-zinc-400 tracking-widest uppercase">
@@ -853,23 +1030,37 @@ function CupomScreen({
           </div>
         </div>
 
-        {/* Ações */}
-        <div className="flex gap-3 mt-4 pb-4">
-          <Button
-            variant="outline"
-            className="flex-1 h-12"
-            onClick={onBack}
-          >
+        <div className="flex gap-3 mt-4">
+          <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={onBack}>
             Voltar ao Início
           </Button>
-          <Button
-            onClick={handleCopy}
-            className="flex-1 h-12 bg-zinc-900 hover:bg-zinc-800 text-white"
-          >
+          <Button onClick={handleCopy} className="flex-1 h-12 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl">
             <Printer className="w-4 h-4 mr-2" />
-            Copiar Cupom
+            Copiar
           </Button>
         </div>
+
+        {!deleted && (
+          <Button
+            variant="ghost"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="w-full h-11 text-red-500 hover:text-red-600 hover:bg-red-50 text-sm mt-2 rounded-xl"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {deleting ? 'Excluindo...' : 'Excluir esta movimentação'}
+          </Button>
+        )}
+
+        {deleted && (
+          <div className="text-center py-8">
+            <p className="text-sm font-medium text-red-600">Movimentação excluída</p>
+            <p className="text-xs text-zinc-400 mt-1">O estoque foi revertido com sucesso.</p>
+            <Button variant="outline" className="mt-4 rounded-xl" onClick={onBack}>
+              Voltar ao Início
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -881,113 +1072,198 @@ function CupomScreen({
 function MovementsScreen({ onBack }: { onBack: () => void }) {
   const [movements, setMovements] = useState<MovementItem[]>([])
   const [filter, setFilter] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  useEffect(() => {
-    const params = filter !== 'TODOS' ? `?type=${filter}` : ''
-    fetch(`/api/movements${params}`)
-      .then((r) => r.json())
-      .then(setMovements)
-  }, [filter])
+  const [, startTransition] = useTransition()
 
-  // Group by cupomId
+  const loadMovements = useCallback(async () => {
+    try {
+      const params = filter !== 'TODOS' ? `?type=${filter}` : ''
+      const res = await fetch(`/api/movements${params}`)
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        startTransition(() => setMovements(data))
+      }
+    } catch {
+      toast({ title: 'Erro ao carregar movimentações', variant: 'destructive' })
+    }
+  }, [filter, toast, startTransition])
+
+  useEffect(() => { loadMovements() }, [loadMovements])
+
   const grouped = movements.reduce<Record<string, MovementItem[]>>((acc, m) => {
     if (!acc[m.cupomId || 'orphan']) acc[m.cupomId || 'orphan'] = []
     acc[m.cupomId || 'orphan'].push(m)
     return acc
   }, {})
 
+  const handleDelete = async (cupomIdVal: string, type: string) => {
+    if (!confirm(`Excluir esta ${type === 'ENTRADA' ? 'entrada' : 'venda'}?\nO estoque será revertido automaticamente.`)) return
+
+    try {
+      const res = await fetch(`/api/movements?cupomId=${cupomIdVal}`, { method: 'DELETE' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({ title: data.error || 'Erro ao excluir', variant: 'destructive' })
+        return
+      }
+
+      toast({ title: `${type === 'ENTRADA' ? 'Entrada' : 'Venda'} excluída! Estoque revertido.` })
+      setExpandedId(null)
+      loadMovements()
+    } catch {
+      toast({ title: 'Erro ao excluir', variant: 'destructive' })
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className="bg-zinc-950 text-white px-4 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-zinc-800" onClick={onBack}>
+    <div className="min-h-screen bg-zinc-50 pb-8">
+      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
             <X className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Movimentações</h1>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Filter buttons */}
+      <div className="px-4 pt-4 space-y-4">
         <div className="flex gap-2">
           {(['TODOS', 'ENTRADA', 'SAIDA'] as const).map((f) => (
-            <Button
+            <button
               key={f}
-              variant={filter === f ? 'default' : 'outline'}
-              size="sm"
               onClick={() => setFilter(f)}
-              className={
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
                 filter === f
                   ? f === 'ENTRADA'
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
                     : f === 'SAIDA'
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                      : 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                  : ''
-              }
+                      ? 'bg-red-500 text-white shadow-sm shadow-red-200'
+                      : 'bg-zinc-900 text-white shadow-sm shadow-zinc-300'
+                  : 'bg-white text-zinc-500 border border-zinc-200 hover:bg-zinc-100'
+              }`}
             >
               {f === 'TODOS' ? 'Todos' : f === 'ENTRADA' ? 'Entradas' : 'Vendas'}
-            </Button>
+            </button>
           ))}
         </div>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+          <div className="space-y-2.5">
             {Object.keys(grouped).length === 0 && (
-              <p className="text-center text-zinc-400 py-8 text-sm">
+              <p className="text-center text-zinc-400 py-12 text-sm">
                 Nenhuma movimentação registrada
               </p>
             )}
             {Object.entries(grouped).map(([cupomId, items]) => {
               const isEntrada = items[0].type === 'ENTRADA'
               const total = items.reduce((sum, m) => sum + m.total, 0)
-              const date = new Date(items[0].createdAt).toLocaleString('pt-BR')
+              const totalQtd = items.reduce((sum, m) => sum + m.quantity, 0)
+              const dateShort = new Date(items[0].createdAt).toLocaleDateString('pt-BR')
+              const dateFull = new Date(items[0].createdAt).toLocaleString('pt-BR')
               const client = items[0].clientName
+              const isExpanded = expandedId === cupomId
 
               return (
-                <Card key={cupomId} className="border-zinc-200">
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] ${isEntrada ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}
-                        >
-                          {isEntrada ? 'ENTRADA' : 'VENDA'}
-                        </Badge>
-                        <span className="text-xs text-zinc-400">{date}</span>
-                        {client && (
-                          <span className="text-xs text-orange-600 font-medium">
-                            {client}
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-bold text-sm whitespace-nowrap ml-2">
-                        R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <div key={cupomId}>
+                  <div
+                    onClick={() => setExpandedId((prev) => prev === cupomId ? null : cupomId)}
+                    className={`border rounded-xl p-3.5 transition-all cursor-pointer active:scale-[0.99] shadow-sm ${
+                      isExpanded
+                        ? isEntrada
+                          ? 'border-emerald-300 bg-emerald-50/50'
+                          : 'border-red-300 bg-red-50/50'
+                        : 'border-zinc-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${
+                        isEntrada ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {isEntrada ? 'ENTRADA' : 'VENDA'}
                       </span>
-                    </div>
-                    <Separator />
-                    {items.map((m) => (
-                      <div key={m.id} className="flex justify-between text-sm">
-                        <span className="text-zinc-600 truncate">
-                          {m.quantity}x {m.product?.name || 'Produto'}
-                          {!isEntrada && m.product ? (
-                            <span className="text-zinc-400 text-xs ml-1">
-                              (R$ {m.unitPrice.toFixed(2)})
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="text-zinc-500 whitespace-nowrap ml-2">
-                          R$ {m.total.toFixed(2)}
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-zinc-400">{dateShort}</span>
+                          {client && (
+                            <>
+                              <span className="text-zinc-300">·</span>
+                              <span className={`text-xs font-medium truncate ${
+                                isEntrada ? 'text-emerald-600' : 'text-red-600'
+                              }`}>
+                                {client}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          {totalQtd} {totalQtd === 1 ? 'item' : 'itens'}
+                          {!isExpanded && ' · toque para detalhes'}
+                        </p>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="font-bold text-sm tabular-nums mr-1">
+                          R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-x border-b rounded-b-xl bg-white shadow-sm overflow-hidden">
+                      <div className="px-3.5 py-2 bg-zinc-50 border-b border-zinc-100">
+                        <div className="flex justify-between text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
+                          <span className="flex-1">Produto</span>
+                          <span className="w-10 text-right">Qtd</span>
+                          <span className="w-16 text-right">Unit.</span>
+                          {!isEntrada && <span className="w-16 text-right">Custo M.</span>}
+                          <span className={`w-[72px] text-right`}>Total</span>
+                        </div>
+                      </div>
+                      {items.map((m) => (
+                        <div key={m.id} className="flex items-center px-3.5 py-2">
+                          <span className="flex-1 text-xs text-zinc-700 truncate">
+                            {m.product?.name || 'Produto'}
+                          </span>
+                          <span className="w-10 text-right text-xs text-zinc-500">{m.quantity}</span>
+                          <span className="w-16 text-right text-xs text-zinc-500 tabular-nums">
+                            R$ {m.unitPrice.toFixed(2)}
+                          </span>
+                          {!isEntrada && (
+                            <span className="w-16 text-right text-[10px] text-amber-600 tabular-nums">
+                              R$ {(m.averageCost || 0).toFixed(2)}
+                            </span>
+                          )}
+                          <span className={`w-[72px] text-right text-xs font-semibold text-zinc-800 tabular-nums`}>
+                            R$ {m.total.toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="px-3.5 py-2.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
+                        <span className="text-[11px] text-zinc-400">{dateFull}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold tabular-nums">
+                            Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(cupomId, items[0].type) }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-red-500 hover:text-white hover:bg-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   )
@@ -1003,12 +1279,11 @@ export default function Home() {
   const [productCount, setProductCount] = useState(0)
   const [todayMovements, setTodayMovements] = useState(0)
   const [totalStockValue, setTotalStockValue] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [, startTransition] = useTransition()
 
-  // Fetch stats when on dashboard
-  useEffect(() => {
-    if (view !== 'dashboard') return
-
-    const loadStats = async () => {
+  const loadStats = useCallback(async () => {
+    try {
       const [productsRes, movementsRes] = await Promise.all([
         fetch('/api/products'),
         fetch('/api/movements'),
@@ -1016,20 +1291,32 @@ export default function Home() {
       const products: Product[] = await productsRes.json()
       const movements: MovementItem[] = await movementsRes.json()
 
+      if (!Array.isArray(products) || !Array.isArray(movements)) return
+
       const count = products.length
       const today = new Date().toISOString().slice(0, 10)
       const todayMov = movements.filter(
         (m) => m.createdAt && m.createdAt.slice(0, 10) === today
       ).length
-      const stockVal = products.reduce((sum, p) => sum + (p.costPrice * p.stock), 0)
+      const stockVal = products.reduce((sum, p) => {
+        const avgCost = p.averageCost || 0
+        return sum + (avgCost * p.stock)
+      }, 0)
 
-      setProductCount(count)
-      setTodayMovements(todayMov)
-      setTotalStockValue(stockVal)
+      startTransition(() => {
+        setProductCount(count)
+        setTodayMovements(todayMov)
+        setTotalStockValue(stockVal)
+      })
+    } catch {
+      // silently fail
     }
+  }, [startTransition])
 
+  useEffect(() => {
+    if (view !== 'dashboard') return
     loadStats()
-  }, [view])
+  }, [view, refreshKey, loadStats])
 
   const handleAccess = () => {
     setPinVerified(true)
@@ -1041,7 +1328,14 @@ export default function Home() {
     setView('cupom')
   }
 
-  const navigateTo = (v: string) => setView(v)
+  const navigateTo = (v: string) => {
+    setView(v)
+  }
+
+  const handleBackToDashboard = () => {
+    setRefreshKey((k) => k + 1)
+    setView('dashboard')
+  }
 
   if (!pinVerified) {
     return <PinScreen onAccess={handleAccess} />
@@ -1059,13 +1353,13 @@ export default function Home() {
       )
 
     case 'produtos':
-      return <ProductsScreen onBack={() => navigateTo('dashboard')} />
+      return <ProductsScreen onBack={handleBackToDashboard} />
 
     case 'entrada':
       return (
         <MovementScreen
           type="ENTRADA"
-          onBack={() => navigateTo('dashboard')}
+          onBack={handleBackToDashboard}
           onComplete={handleMovementComplete}
         />
       )
@@ -1074,7 +1368,7 @@ export default function Home() {
       return (
         <MovementScreen
           type="SAIDA"
-          onBack={() => navigateTo('dashboard')}
+          onBack={handleBackToDashboard}
           onComplete={handleMovementComplete}
         />
       )
@@ -1083,12 +1377,12 @@ export default function Home() {
       return lastCupomId ? (
         <CupomScreen
           cupomId={lastCupomId}
-          onBack={() => navigateTo('dashboard')}
+          onBack={handleBackToDashboard}
         />
       ) : null
 
     case 'movimentacoes':
-      return <MovementsScreen onBack={() => navigateTo('dashboard')} />
+      return <MovementsScreen onBack={handleBackToDashboard} />
 
     default:
       return null
