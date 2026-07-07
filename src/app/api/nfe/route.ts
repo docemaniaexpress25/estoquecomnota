@@ -1,9 +1,14 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { XMLParser } from 'fast-xml-parser'
 
-// NF-e XML namespace
-const NFE_NS = 'http://www.portalfiscal.inf.br/nfe'
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  removeNSPrefix: true,
+  textNodeName: '#text',
+})
 
 interface NfeProduct {
   name: string
@@ -34,51 +39,64 @@ interface NfeParsed {
   valorProdutos: number
 }
 
-function getTagText(node: Element, tagName: string, ns: string = NFE_NS): string {
-  // Try with namespace first
-  let el = node.getElementsByTagNameNS(ns, tagName)
-  if (el.length > 0) return el[0].textContent?.trim() || ''
-
-  // Try without namespace
-  el = node.getElementsByTagName(tagName)
-  if (el.length > 0) return el[0].textContent?.trim() || ''
-
+// Helper: safely get a nested value from parsed object
+function getVal(obj: unknown, ...paths: string[]): string {
+  if (!obj || typeof obj !== 'object') return ''
+  for (const path of paths) {
+    const keys = path.split('.')
+    let current: unknown = obj
+    for (const key of keys) {
+      if (!current || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, key)) {
+        current = undefined
+        break
+      }
+      current = (current as Record<string, unknown>)[key]
+    }
+    if (current !== undefined && current !== null) {
+      if (typeof current === 'string') return current.trim()
+      if (typeof current === 'number') return String(current)
+      if (typeof current === 'object' && '#text' in (current as Record<string, unknown>)) {
+        return String((current as Record<string, unknown>)['#text']).trim()
+      }
+    }
+  }
   return ''
 }
 
 function parseNfeXml(xmlString: string): NfeParsed {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(xmlString, 'text/xml')
-
-  // Check for parse errors
-  const parseError = doc.querySelector('parsererror')
-  if (parseError) {
+  let parsed: Record<string, unknown>
+  try {
+    parsed = parser.parse(xmlString)
+  } catch {
     throw new Error('XML inválido: erro ao analisar o arquivo')
   }
 
-  // Try to find infNFe - try with namespace and without
-  let infNFe = doc.getElementsByTagNameNS(NFE_NS, 'infNFe')[0]
-  if (!infNFe) {
-    infNFe = doc.getElementsByTagName('infNFe')[0]
-  }
-  if (!infNFe) {
+  // Navigate to infNFe - handle both with and without nfeProc wrapper
+  const nfeProc = parsed.nfeProc || parsed
+  const nfe = nfeProc.NFe || nfeProc.nfe || nfeProc
+  const infNFe = nfe.infNFe || nfe
+
+  if (!infNFe || typeof infNFe !== 'object') {
     throw new Error('XML não é uma NF-e válida: tag infNFe não encontrada')
   }
 
-  // Extract NFe header data
-  const ide = infNFe.getElementsByTagName('ide')[0] || infNFe.getElementsByTagNameNS(NFE_NS, 'ide')[0]
-  const emit = infNFe.getElementsByTagName('emit')[0] || infNFe.getElementsByTagNameNS(NFE_NS, 'emit')[0]
+  const ide = infNFe.ide
+  const emit = infNFe.emit
+  const dest = infNFe.dest
 
-  const numero = getTagText(ide, 'nNF')
-  const serie = getTagText(ide, 'serie')
-  const dhEmi = getTagText(ide, 'dhEmi') || getTagText(ide, 'dEmi')
+  // Header
+  const numero = getVal(ide, 'nNF')
+  const serie = getVal(ide, 'serie')
+  const dhEmi = getVal(ide, 'dhEmi', 'dEmi')
 
   // Format date
   let dataEmissao = dhEmi
   if (dhEmi) {
     try {
       const d = new Date(dhEmi)
-      dataEmissao = d.toLocaleDateString('pt-BR')
+      if (!isNaN(d.getTime())) {
+        dataEmissao = d.toLocaleDateString('pt-BR')
+      }
     } catch {
       // Keep original if parse fails
     }
@@ -86,54 +104,55 @@ function parseNfeXml(xmlString: string): NfeParsed {
 
   // Emitente
   const emitente = {
-    cnpj: getTagText(emit, 'CNPJ') || getTagText(emit, 'CPF'),
-    nome: getTagText(emit, 'xNome') || getTagText(emit, 'xFant'),
-    uf: getTagText(emit, 'UF'),
+    cnpj: getVal(emit, 'CNPJ', 'CPF'),
+    nome: getVal(emit, 'xNome', 'xFant'),
+    uf: getVal(emit, 'enderEmit.UF', 'UF'),
   }
 
   // Destinatario
   let destinatario: NfeParsed['destinatario'] = undefined
-  const dest = infNFe.getElementsByTagName('dest')[0] || infNFe.getElementsByTagNameNS(NFE_NS, 'dest')[0]
-  if (dest) {
-    const destNome = getTagText(dest, 'xNome')
-    const destCnpj = getTagText(dest, 'CNPJ') || getTagText(dest, 'CPF')
+  if (dest && typeof dest === 'object') {
+    const destNome = getVal(dest, 'xNome')
+    const destCnpj = getVal(dest, 'CNPJ', 'CPF')
     if (destNome || destCnpj) {
       destinatario = { cnpj: destCnpj, nome: destNome }
     }
   }
 
-  // Total
-  const total = infNFe.getElementsByTagName('total')[0] || infNFe.getElementsByTagNameNS(NFE_NS, 'total')[0]
-  const icmstot = total?.getElementsByTagName('ICMSTot')[0] || total?.getElementsByTagNameNS(NFE_NS, 'ICMSTot')[0]
-  const valorTotal = parseFloat(getTagText(icmstot, 'vNF') || '0')
-  const valorProdutos = parseFloat(getTagText(icmstot, 'vProd') || '0')
+  // Totals
+  const total = infNFe.total
+  const icmstot = total?.ICMSTot || total
+  const valorTotal = parseFloat(getVal(icmstot, 'vNF') || '0')
+  const valorProdutos = parseFloat(getVal(icmstot, 'vProd') || '0')
 
-  // Products (det nodes)
+  // Products
   const produtos: NfeProduct[] = []
-  const detNodes = infNFe.getElementsByTagName('det')
 
-  for (let i = 0; i < detNodes.length; i++) {
-    const det = detNodes[i]
-    const prod = det.getElementsByTagName('prod')[0] || det.getElementsByTagNameNS(NFE_NS, 'prod')[0]
-    if (!prod) continue
+  // det can be an array or a single object
+  const detArray = infNFe.det
+  const dets: Record<string, unknown>[] = Array.isArray(detArray) ? detArray : detArray ? [detArray] : []
 
-    const name = getTagText(prod, 'xProd')
-    const quantity = parseFloat(getTagText(prod, 'qCom') || '0')
-    const unit = getTagText(prod, 'uCom') || 'UN'
-    const unitCost = parseFloat(getTagText(prod, 'vUnCom') || '0')
-    const total = parseFloat(getTagText(prod, 'vProd') || '0')
-    const ncm = getTagText(prod, 'NCM')
-    const cfop = getTagText(prod, 'CFOP')
-    const codBarras = getTagText(prod, 'cEAN') || getTagText(prod, 'cEANTrib')
+  for (const det of dets) {
+    const prod = det.prod
+    if (!prod || typeof prod !== 'object') continue
 
+    const name = getVal(prod, 'xProd')
     if (!name) continue
+
+    const quantity = parseFloat(getVal(prod, 'qCom') || '0')
+    const unit = getVal(prod, 'uCom') || 'UN'
+    const unitCost = parseFloat(getVal(prod, 'vUnCom') || '0')
+    const totalProd = parseFloat(getVal(prod, 'vProd') || '0')
+    const ncm = getVal(prod, 'NCM')
+    const cfop = getVal(prod, 'CFOP')
+    const codBarras = getVal(prod, 'cEAN', 'cEANTrib')
 
     produtos.push({
       name,
-      quantity: Math.round(quantity * 1000) / 1000, // avoid floating point issues
+      quantity: Math.round(quantity * 1000) / 1000,
       unit,
       unitCost,
-      total,
+      total: totalProd,
       ncm,
       cfop,
       codBarras,
