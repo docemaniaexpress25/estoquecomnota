@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useTransition } from 'react'
+import React, { useState, useEffect, useCallback, useTransition, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +23,7 @@ import {
   Plus,
   ChevronDown,
   CalendarDays,
+  FileUp,
 } from 'lucide-react'
 
 // Types
@@ -240,6 +241,14 @@ function Dashboard({
             </div>
             <p className="font-semibold text-sm text-zinc-900">Histórico</p>
             <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Entradas e saídas</p>
+          </button>
+          <button
+            className="col-span-2 bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+            onClick={() => onNavigate('nfe')}
+          >
+            <div className="h-11 w-11 rounded-xl bg-teal-100 flex items-center justify-center mb-3 group-active:bg-teal-200 transition-colors"><FileUp className="w-5 h-5 text-teal-600" /></div>
+            <p className="font-semibold text-sm text-zinc-900">Entrada por NF-e</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de Nota Fiscal eletrônica</p>
           </button>
         </div>
       </div>
@@ -1270,6 +1279,299 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
 }
 
 // ========================
+// NF-e Upload Screen
+// ========================
+interface NfeProduct {
+  name: string
+  quantity: number
+  unit: string
+  unitCost: number
+  total: number
+  ncm: string
+  cfop: string
+}
+
+interface NfeData {
+  numero: string
+  serie: string
+  dataEmissao: string
+  emitente: { cnpj: string; nome: string; uf: string }
+  produtos: NfeProduct[]
+  valorTotal: number
+  valorProdutos: number
+}
+
+function NfeScreen({ onBack, onComplete }: { onBack: () => void; onComplete: (cupomId: string) => void }) {
+  const [nfeData, setNfeData] = useState<NfeData | null>(null)
+  const [fileName, setFileName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const { toast } = useToast()
+
+  const handleFile = async (file: File) => {
+    if (!file.name.endsWith('.xml')) {
+      toast({ title: 'Apenas arquivos .xml', variant: 'destructive' })
+      return
+    }
+
+    setFileName(file.name)
+    setLoading(true)
+    setNfeData(null)
+
+    const formData = new FormData()
+    formData.append('xml', file)
+    formData.append('action', 'parse')
+
+    try {
+      const res = await fetch('/api/nfe', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({ title: data.error || 'Erro ao ler NF-e', variant: 'destructive' })
+        setLoading(false)
+        return
+      }
+
+      setNfeData(data.data)
+      toast({ title: `${data.data.produtos.length} produto(s) encontrados!` })
+    } catch {
+      toast({ title: 'Erro ao processar arquivo', variant: 'destructive' })
+    }
+    setLoading(false)
+  }
+
+  const handleConfirm = async () => {
+    if (!nfeData) return
+
+    setImporting(true)
+    const formData = new FormData()
+    formData.append('xml', new Blob([fileName], { type: 'application/xml' }))
+    formData.append('action', 'confirm')
+
+    // Re-read the original file - we need to store it
+    const fileInput = document.createElement('input')
+    fileInput.type = 'file'
+    fileInput.accept = '.xml'
+
+    // Actually, we need to use the stored file ref
+    // Let's use a different approach - just re-submit with the same file name
+    // We'll use the fileInput approach
+    toast({ title: 'Reenviando arquivo para importacao...', variant: 'destructive' })
+    setImporting(false)
+    return
+
+    // Better approach: store the file in a ref
+  }
+
+  // Store file ref using a hidden approach
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const storedFileRef = React.useRef<File | null>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      storedFileRef.current = file
+      handleFile(file)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      storedFileRef.current = file
+      handleFile(file)
+    }
+  }
+
+  const handleConfirmImport = async () => {
+    if (!nfeData || !storedFileRef.current) {
+      toast({ title: 'Arquivo nao encontrado, faca upload novamente', variant: 'destructive' })
+      return
+    }
+
+    setImporting(true)
+    const formData = new FormData()
+    formData.append('xml', storedFileRef.current)
+    formData.append('action', 'confirm')
+
+    try {
+      const res = await fetch('/api/nfe', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({ title: data.error || 'Erro ao importar', variant: 'destructive' })
+        setImporting(false)
+        return
+      }
+
+      toast({ title: `NF-e importada! ${data.totalItens} itens` })
+      onComplete(data.cupomId)
+    } catch {
+      toast({ title: 'Erro ao importar NF-e', variant: 'destructive' })
+    }
+    setImporting(false)
+  }
+
+  const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
+
+  return (
+    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+      <header className="bg-gradient-to-br from-teal-600 to-teal-700 text-white px-4 py-4 pt-safe shrink-0">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+            <X className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold">Entrada por NF-e</h1>
+            <p className="text-[11px] opacity-70">Importar Nota Fiscal eletronica</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="w-full px-4 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
+        {/* Upload area */}
+        {!nfeData && (
+          <div
+            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+              dragOver ? 'border-teal-400 bg-teal-50' : 'border-zinc-300 bg-white hover:border-zinc-400'
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xml"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {loading ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-zinc-300 border-t-teal-500 rounded-full animate-spin" />
+                <p className="text-sm text-zinc-500">Lendo NF-e...</p>
+              </div>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-2xl bg-teal-100 flex items-center justify-center mx-auto mb-3">
+                  <FileUp className="w-7 h-7 text-teal-600" />
+                </div>
+                <p className="font-semibold text-sm text-zinc-700">
+                  {dragOver ? 'Solte o arquivo aqui' : 'Toque para selecionar o XML'}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Arraste o arquivo .xml da NF-e ou toque para buscar
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* NF-e Data */}
+        {nfeData && (
+          <>
+            {/* NF Header */}
+            <Card className="border-0 shadow-sm overflow-hidden">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">Nota Fiscal Eletronica</p>
+                    <p className="font-bold text-base text-zinc-900 mt-0.5">
+                      NF-e {nfeData.numero?.padStart(9, '0')}{nfeData.serie ? ` Serie ${nfeData.serie}` : ''}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="bg-teal-100 text-teal-700 text-xs border-0 shrink-0 mt-3">
+                    {nfeData.dataEmissao}
+                  </Badge>
+                </div>
+                <div className="text-xs text-zinc-500 space-y-0.5">
+                  <p><span className="font-medium text-zinc-700">Emitente:</span> {nfeData.emitente.nome}</p>
+                  {nfeData.emitente.cnpj && <p><span className="font-medium text-zinc-700">CNPJ:</span> {nfeData.emitente.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}</p>}
+                  {nfeData.emitente.uf && <p><span className="font-medium text-zinc-700">UF:</span> {nfeData.emitente.uf}</p>}
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-zinc-400">Produtos</p>
+                    <p className="text-lg font-bold text-zinc-800">{nfeData.produtos.length}</p>
+                  </div>
+                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-zinc-400">Itens total</p>
+                    <p className="text-lg font-bold text-zinc-800">{totalQtd}</p>
+                  </div>
+                  <div className="flex-1 bg-teal-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-teal-600">Valor NF</p>
+                    <p className="text-lg font-bold text-teal-700 tabular-nums">
+                      R$ {nfeData.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Products list */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1 flex">
+                <span className="flex-1">Produto</span>
+                <span className="w-12 text-right">Qtd</span>
+                <span className="w-14 text-right">Unit.</span>
+                <span className="w-14 text-right">Un.</span>
+                <span className="w-20 text-right">Total</span>
+              </div>
+              <div className="space-y-1.5">
+                {nfeData.produtos.map((p, i) => (
+                  <Card key={i} className="border-0 shadow-sm">
+                    <CardContent className="p-3">
+                      <p className="text-sm font-medium text-zinc-800 leading-tight mb-1.5">{p.name}</p>
+                      <div className="flex items-center text-xs">
+                        <span className="flex-1 text-zinc-400 truncate">
+                          {p.ncm ? `NCM: ${p.ncm}` : ''}{p.cfop ? ` · CFOP: ${p.cfop}` : ''}
+                        </span>
+                        <span className="w-12 text-right text-zinc-600">{p.quantity}</span>
+                        <span className="w-14 text-right text-zinc-600 tabular-nums">R$ {p.unitCost.toFixed(2)}</span>
+                        <span className="w-14 text-right text-zinc-400">{p.unit}</span>
+                        <span className="w-20 text-right font-semibold text-zinc-800 tabular-nums">R$ {p.total.toFixed(2)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2 shrink-0 mt-2">
+              <Button
+                onClick={handleConfirmImport}
+                disabled={importing}
+                className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl"
+              >
+                {importing ? 'Importando...' : `Confirmar Importacao de ${nfeData.produtos.length} produto(s)`}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setNfeData(null); setFileName('') }}
+                className="w-full h-10 rounded-xl"
+              >
+                Enviar outro XML
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ========================
 // Main App
 // ========================
 export default function Home() {
@@ -1383,6 +1685,9 @@ export default function Home() {
 
     case 'movimentacoes':
       return <MovementsScreen onBack={handleBackToDashboard} />
+
+    case 'nfe':
+      return <NfeScreen onBack={() => navigateTo('dashboard')} onComplete={(cupomId) => navigateTo('cupom')} />
 
     default:
       return null
