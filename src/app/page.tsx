@@ -1687,7 +1687,7 @@ export default function Home() {
       return <MovementsScreen onBack={handleBackToDashboard} />
 
     case 'nfe':
-      return <NfeScreen onBack={() => navigateTo('dashboard')} onComplete={(cupomId) => navigateTo('cupom')} />
+      return <NfeScreen onBack={handleBackToDashboard} onComplete={handleMovementComplete} />
 
     default:
       return null
