@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useTransition, useRef } from 'react'
+     4→import { Button } from '@/components/ui/button'
+     5→import { Input } from '@/components/ui/input'
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     7→import { ScrollArea } from '@/components/ui/scroll-area'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { useToast } from '@/hooks/use-toast'
+    10→import {
+    11→  ArrowDownToLine,
+    12→  ArrowUpFromLine,
+    13→  Package,
+    14→  PackagePlus,
+    15→  History,
+    16→  Trash2,
+    17→  Edit3,
+    18→  X,
+    19→  Printer,
+    20→  User,
+    21→  Wallet,
+    22→  Minus,
+    23→  Plus,
+    24→  ChevronDown,
+    25→  CalendarDays,
+    26→  FileUp,
+    27→  FileText,
+    28→} from 'lucide-react'
+    29→
+    30→// Types
+    31→interface Product {
+    32→  id: string
+    33→  name: string
+    34→  stock: number
+    35→  averageCost: number
+    36→}
+    37→
+    38→interface MovementItem {
+    39→  id: string
+    40→  type: string
+    41→  productId: string
+    42→  quantity: number
+    43→  unitPrice: number
+    44→  averageCost: number | null
+    45→  total: number
+    46→  cupomId: string | null
+    47→  clientName: string | null
+    48→  createdAt: string
+    49→  product?: { name: string }
+    50→}
+    51→
+    52→// ========================
+    53→// PIN Screen
+    54→// ========================
+    55→function PinScreen({ onAccess }: { onAccess: () => void }) {
+    56→  const [pin, setPin] = useState('')
+    57→  const [shake, setShake] = useState(false)
+    58→  const CORRECT_PIN = '233023'
+    59→
+    60→  const handlePinInput = (value: string) => {
+    61→    if (pin.length < 6) {
+    62→      const newPin = pin + value
+    63→      setPin(newPin)
+    64→      if (newPin.length === 6) {
+    65→        if (newPin === CORRECT_PIN) {
+    66→          setTimeout(() => onAccess(), 200)
+    67→        } else {
+    68→          setShake(true)
+    69→          setTimeout(() => {
+    70→            setPin('')
+    71→            setShake(false)
+    72→          }, 500)
+    73→        }
+    74→      }
+    75→    }
+    76→  }
+    77→
+    78→  const handleDelete = () => {
+    79→    setPin(prev => prev.slice(0, -1))
+    80→  }
+    81→
+    82→  return (
+    83→    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center px-4 pb-safe">
+    84→      <div className="mb-10 text-center">
+    85→        <div className="relative inline-block">
+    86→          <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl scale-150" />
+    87→          <div className="relative bg-zinc-800/80 rounded-2xl p-4 border border-zinc-700/50">
+    88→            <Package className="w-10 h-10 text-emerald-400 mx-auto" />
+    89→          </div>
+    90→        </div>
+    91→        <h1 className="text-white text-xl font-bold mt-5 tracking-tight">Estoque</h1>
+    92→        <p className="text-zinc-500 text-sm mt-1.5">Digite o PIN para acessar</p>
+    93→      </div>
+    94→
+    95→      <div className={`flex gap-4 mb-10 ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
+    96→        {Array.from({ length: 6 }).map((_, i) => (
+    97→          <div
+    98→            key={i}
+    99→            className={`w-4 h-4 rounded-full transition-all duration-300 ${
+   100→              i < pin.length
+   101→                ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)] scale-125'
+   102→                : 'bg-zinc-700'
+   103→            }`}
+   104→          />
+   105→        ))}
+   106→      </div>
+   107→
+   108→      <div className="grid grid-cols-3 gap-3 w-full max-w-[300px]">
+   109→        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => (
+   110→          <button
+   111→            key={key || 'empty'}
+   112→            className={`h-[4.5rem] text-xl font-medium rounded-2xl transition-all active:scale-95 ${
+   113→              key === 'del'
+   114→                ? 'text-red-400 hover:text-red-300 hover:bg-zinc-800/80 active:bg-zinc-700'
+   115→                : key
+   116→                  ? 'text-white hover:bg-zinc-800/80 bg-zinc-800/50 border border-zinc-700/50 active:bg-zinc-700'
+   117→                  : 'invisible'
+   118→            }`}
+   119→            onClick={() => {
+   120→              if (key === 'del') handleDelete()
+   121→              else if (key) handlePinInput(key)
+   122→            }}
+   123→          >
+   124→            {key === 'del' ? <X className="w-6 h-6 mx-auto" /> : key}
+   125→          </button>
+   126→        ))}
+   127→      </div>
+   128→
+   129→      <style>{`
+   130→        @keyframes shake {
+   131→          0%, 100% { transform: translateX(0); }
+   132→          20% { transform: translateX(-10px); }
+   133→          40% { transform: translateX(10px); }
+   134→          60% { transform: translateX(-10px); }
+   135→          80% { transform: translateX(10px); }
+   136→        }
+   137→      `}</style>
+   138→    </div>
+   139→  )
+   140→}
+   141→
+   142→// ========================
+   143→// Dashboard
+   144→// ========================
+   145→function Dashboard({
+   146→  onNavigate,
+   147→  productCount,
+   148→  todayMovements,
+   149→  totalStockValue,
+   150→  negativeStockCount,
+   151→  todayEntriesValue,
+   152→  todayExitsValue,
+   153→  todayProfit,
+   154→}: {
+   155→  onNavigate: (view: string) => void
+   156→  productCount: number
+   157→  todayMovements: number
+   158→  totalStockValue: number
+   159→  negativeStockCount: number
+   160→  todayEntriesValue: number
+   161→  todayExitsValue: number
+   162→  todayProfit: number
+   163→}) {
+   164→  const today = new Date().toLocaleDateString('pt-BR', {
+   165→    weekday: 'long',
+   166→    day: 'numeric',
+   167→    month: 'long',
+   168→  })
+   169→  const { toast } = useToast()
+   170→  const [noteContent, setNoteContent] = useState('')
+   171→  const noteIdRef = useRef<string | null>(null)
+   172→  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+   173→
+   174→  // Load latest note on mount
+   175→  useEffect(() => {
+   176→    fetch('/api/notes')
+   177→      .then((r) => r.json())
+   178→      .then((data) => {
+   179→        if (Array.isArray(data) && data.length > 0) {
+   180→          noteIdRef.current = data[0].id
+   181→          setNoteContent(data[0].content || '')
+   182→        }
+   183→      })
+   184→      .catch(() => {})
+   185→  }, [])
+   186→
+   187→  const saveNote = useCallback(() => {
+   188→    const content = noteContent.trim()
+   189→    if (!content) return
+   190→
+   191→    if (noteIdRef.current) {
+   192→      fetch('/api/notes', {
+   193→        method: 'PUT',
+   194→        headers: { 'Content-Type': 'application/json' },
+   195→        body: JSON.stringify({ id: noteIdRef.current, content }),
+   196→      }).catch(() => {})
+   197→    } else {
+   198→      fetch('/api/notes', {
+   199→        method: 'POST',
+   200→        headers: { 'Content-Type': 'application/json' },
+   201→        body: JSON.stringify({ content }),
+   202→      })
+   203→        .then((r) => r.json())
+   204→        .then((data) => {
+   205→          if (data?.id) noteIdRef.current = data.id
+   206→        })
+   207→        .catch(() => {})
+   208→    }
+   209→    toast({ title: 'Salvo' })
+   210→  }, [noteContent, toast])
+   211→
+   212→  const handleNoteBlur = () => {
+   213→    if (debounceRef.current) clearTimeout(debounceRef.current)
+   214→    debounceRef.current = setTimeout(() => {
+   215→      saveNote()
+   216→    }, 300)
+   217→  }
+   218→
+   219→  const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+   220→
+   221→  return (
+   222→    <div className="min-h-screen bg-zinc-50 pb-8">
+   223→      {/* Header */}
+   224→      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-5 pt-safe pb-5">
+   225→        <div className="flex items-center justify-between">
+   226→          <div>
+   227→            <p className="text-zinc-400 text-xs uppercase tracking-wider font-medium flex items-center gap-1.5">
+   228→              <CalendarDays className="w-3.5 h-3.5" />
+   229→              {today}
+   230→            </p>
+   231→            <h1 className="text-xl font-bold mt-1 tracking-tight">Controle de Estoque</h1>
+   232→          </div>
+   233→          <Badge variant="secondary" className="bg-white/10 text-white/80 text-xs border-0 backdrop-blur-sm">
+   234→            {todayMovements} mov. hoje
+   235→          </Badge>
+   236→        </div>
+   237→      </header>
+   238→
+   239→      <div className="px-4 -mt-1 space-y-4">
+   240→        {/* Financial Balance Card */}
+   241→        <Card className="border-0 shadow-sm bg-white overflow-hidden">
+   242→          <CardContent className="p-4">
+   243→            <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold mb-3">Balanço do Dia</p>
+   244→            <div className="grid grid-cols-3 gap-3">
+   245→              <div className="text-center">
+   246→                <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Entradas</p>
+   247→                <p className="text-sm font-bold text-emerald-700 mt-0.5 tabular-nums">R$ {fmt(todayEntriesValue)}</p>
+   248→              </div>
+   249→              <div className="text-center">
+   250→                <p className="text-[10px] text-red-500 font-medium uppercase tracking-wide">Saídas</p>
+   251→                <p className="text-sm font-bold text-red-600 mt-0.5 tabular-nums">R$ {fmt(todayExitsValue)}</p>
+   252→              </div>
+   253→              <div className="text-center">
+   254→                <p className="text-[10px] text-sky-600 font-medium uppercase tracking-wide">Lucro</p>
+   255→                <p className={`text-sm font-bold mt-0.5 tabular-nums ${todayProfit >= 0 ? 'text-sky-700' : 'text-red-600'}`}>R$ {fmt(todayProfit)}</p>
+   256→              </div>
+   257→            </div>
+   258→          </CardContent>
+   259→        </Card>
+   260→
+   261→        {/* Negative Stock Alert */}
+   262→        {negativeStockCount > 0 && (
+   263→          <button
+   264→            onClick={() => onNavigate('produtos')}
+   265→            className="w-full border-0 shadow-sm bg-gradient-to-br from-red-500 to-red-600 text-white overflow-hidden relative rounded-2xl"
+   266→          >
+   267→            <CardContent className="p-4 relative z-10">
+   268→              <div className="flex items-center gap-3">
+   269→                <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+   270→                  <Package className="w-5 h-5 text-white" />
+   271→                </div>
+   272→                <div className="flex-1 text-left">
+   273→                  <p className="text-red-100 text-[10px] font-medium uppercase tracking-wider">Estoque Negativo</p>
+   274→                  <p className="text-base font-bold mt-0.5">
+   275→                    {negativeStockCount} produto{negativeStockCount !== 1 ? 's' : ''} sem estoque
+   276→                  </p>
+   277→                </div>
+   278→                <ChevronDown className="w-5 h-5 text-white/50 rotate-[-90deg]" />
+   279→              </div>
+   280→            </CardContent>
+   281→          </button>
+   282→        )}
+   283→
+   284→        {/* Notes Block */}
+   285→        <Card className="border-0 shadow-sm">
+   286→          <CardContent className="p-4">
+   287→            <div className="flex items-center gap-2 mb-2">
+   288→              <FileText className="w-4 h-4 text-zinc-500" />
+   289→              <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Anotações</p>
+   290→            </div>
+   291→            <textarea
+   292→              value={noteContent}
+   293→              onChange={(e) => setNoteContent(e.target.value)}
+   294→              onBlur={handleNoteBlur}
+   295→              placeholder="Escreva suas anotações aqui..."
+   296→              className="w-full text-sm text-zinc-700 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-300 placeholder:text-zinc-400"
+   297→              style={{ maxHeight: '120px', minHeight: '60px' }}
+   298→              rows={3}
+   299→            />
+   300→          </CardContent>
+   301→        </Card>
+   302→
+   303→        {/* Action Grid - 6 buttons in 2-column grid */}
+   304→        <div className="grid grid-cols-2 gap-3">
+   305→          <button
+   306→            onClick={() => onNavigate('nfe')}
+   307→            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+   308→          >
+   309→            <div className="h-11 w-11 rounded-xl bg-teal-100 flex items-center justify-center mb-3 group-active:bg-teal-200 transition-colors">
+   310→              <FileUp className="w-5 h-5 text-teal-600" />
+   311→            </div>
+   312→            <p className="font-semibold text-sm text-zinc-900">Entrada XML</p>
+   313→            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de entrada</p>
+   314→          </button>
+   315→
+   316→          <button
+   317→            onClick={() => onNavigate('entrada')}
+   318→            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+   319→          >
+   320→            <div className="h-11 w-11 rounded-xl bg-emerald-100 flex items-center justify-center mb-3 group-active:bg-emerald-200 transition-colors">
+   321→              <ArrowDownToLine className="w-5 h-5 text-emerald-600" />
+   322→            </div>
+   323→            <p className="font-semibold text-sm text-zinc-900">Entrada Manual</p>
+   324→            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar entrada manual</p>
+   325→          </button>
+   326→
+   327→          <button
+   328→            onClick={() => onNavigate('nfe_saida')}
+   329→            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+   330→          >
+   331→            <div className="h-11 w-11 rounded-xl bg-orange-100 flex items-center justify-center mb-3 group-active:bg-orange-200 transition-colors">
+   332→              <ArrowUpFromLine className="w-5 h-5 text-orange-600" />
+   333→            </div>
+   334→            <p className="font-semibold text-sm text-zinc-900">Saída XML</p>
+   335→            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de saída</p>
+   336→          </button>
+   337→
+   338→          <button
+   339→            onClick={() => onNavigate('saida')}
+   340→            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+   341→          >
+   342→            <div className="h-11 w-11 rounded-xl bg-red-100 flex items-center justify-center mb-3 group-active:bg-red-200 transition-colors">
+   343→              <PackagePlus className="w-5 h-5 text-red-600" />
+   344→            </div>
+   345→            <p className="font-semibold text-sm text-zinc-900">Venda Rápida</p>
+   346→            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar venda/saída</p>
+   347→          </button>
+   348→
+   349→          <button
+   350→            onClick={() => onNavigate('produtos')}
+   351→            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+   352→          >
+   353→            <div className="h-11 w-11 rounded-xl bg-zinc-100 flex items-center justify-center mb-3 group-active:bg-zinc-200 transition-colors">
+   354→              <Package className="w-5 h-5 text-zinc-600" />
+   355→            </div>
+   356→            <p className="font-semibold text-sm text-zinc-900">Produtos</p>
+   357→            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Cadastrar e gerenciar</p>
+   358→          </button>
+   359→
+   360→          <button
+   361→            onClick={() => onNavigate('relatorio')}
+   362→            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+   363→          >
+   364→            <div className="h-11 w-11 rounded-xl bg-zinc-100 flex items-center justify-center mb-3 group-active:bg-zinc-200 transition-colors">
+   365→              <History className="w-5 h-5 text-zinc-600" />
+   366→            </div>
+   367→            <p className="font-semibold text-sm text-zinc-900">Relatório</p>
+   368→            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Balanço de produtos</p>
+   369→          </button>
+   370→        </div>
+   371→
+   372→        {/* Stock Value Card */}
+   373→        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative">
+   374→          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+   375→          <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+   376→          <CardContent className="p-5 relative z-10">
+   377→            <div className="flex items-center gap-4">
+   378→              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+   379→                <Wallet className="w-6 h-6 text-white" />
+   380→              </div>
+   381→              <div className="flex-1">
+   382→                <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">Valor Total em Estoque</p>
+   383→                <p className="text-3xl font-bold mt-0.5 tabular-nums tracking-tight">
+   384→                  R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+   385→                </p>
+   386→              </div>
+   387→            </div>
+   388→            <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
+   389→              <span className="text-emerald-100 text-xs">{productCount} produto{productCount !== 1 ? 's' : ''}</span>
+   390→              <span className="text-emerald-100 text-xs">{todayMovements} movimentação{todayMovements !== 1 ? 'ões' : ''} hoje</span>
+   391→            </div>
+   392→          </CardContent>
+   393→        </Card>
+   394→      </div>
+   395→    </div>
+   396→  )
+   397→}
+   398→
+   399→// ========================
+   400→// Product Registration
+   401→// ========================
+   402→function ProductsScreen({ onBack }: { onBack: () => void }) {
+   403→  const [products, setProducts] = useState<Product[]>([])
+   404→  const [name, setName] = useState('')
+   405→  const [stock, setStock] = useState('')
+   406→  const [editingId, setEditingId] = useState<string | null>(null)
+   407→  const [loading, setLoading] = useState(false)
+   408→  const { toast } = useToast()
+   409→
+   410→  const [, startTransition] = useTransition()
+   411→
+   412→  const loadProducts = useCallback(async () => {
+   413→    try {
+   414→      const res = await fetch('/api/products')
+   415→      const data = await res.json()
+   416→      if (Array.isArray(data)) {
+   417→        startTransition(() => setProducts(data))
+   418→      }
+   419→    } catch {
+   420→      toast({ title: 'Erro ao carregar produtos', variant: 'destructive' })
+   421→    }
+   422→  }, [toast, startTransition])
+   423→
+   424→  useEffect(() => { loadProducts() }, [loadProducts])
+   425→
+   426→  const handleSubmit = async () => {
+   427→    if (!name.trim()) {
+   428→      toast({ title: 'Nome é obrigatório', variant: 'destructive' })
+   429→      return
+   430→    }
+   431→
+   432→    setLoading(true)
+   433→    try {
+   434→      if (editingId) {
+   435→        const res = await fetch('/api/products', {
+   436→          method: 'PUT',
+   437→          headers: { 'Content-Type': 'application/json' },
+   438→          body: JSON.stringify({ id: editingId, name, stock: stock || undefined }),
+   439→        })
+   440→        if (!res.ok) {
+   441→          const data = await res.json()
+   442→          toast({ title: data.error || 'Erro ao atualizar', variant: 'destructive' })
+   443→          setLoading(false)
+   444→          return
+   445→        }
+   446→        toast({ title: 'Produto atualizado!' })
+   447→        setEditingId(null)
+   448→      } else {
+   449→        const res = await fetch('/api/products', {
+   450→          method: 'POST',
+   451→          headers: { 'Content-Type': 'application/json' },
+   452→          body: JSON.stringify({ name }),
+   453→        })
+   454→        if (!res.ok) {
+   455→          const data = await res.json()
+   456→          toast({ title: data.error || 'Erro ao cadastrar', variant: 'destructive' })
+   457→          setLoading(false)
+   458→          return
+   459→        }
+   460→        toast({ title: 'Produto cadastrado!' })
+   461→      }
+   462→      setName('')
+   463→      setStock('')
+   464→      loadProducts()
+   465→    } catch {
+   466→      toast({ title: 'Erro ao salvar', variant: 'destructive' })
+   467→    }
+   468→    setLoading(false)
+   469→  }
+   470→
+   471→  const handleEdit = (p: Product) => {
+   472→    setEditingId(p.id)
+   473→    setName(p.name)
+   474→    setStock(p.stock > 0 ? p.stock.toString() : '')
+   475→  }
+   476→
+   477→  const handleDelete = async (id: string) => {
+   478→    if (!confirm('Deletar este produto e todas suas entradas/movimentações?')) return
+   479→    try {
+   480→      const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' })
+   481→      if (!res.ok) {
+   482→        const data = await res.json()
+   483→        toast({ title: data.error || 'Erro ao deletar', variant: 'destructive' })
+   484→        return
+   485→      }
+   486→      toast({ title: 'Produto removido' })
+   487→      loadProducts()
+   488→    } catch {
+   489→      toast({ title: 'Erro ao deletar', variant: 'destructive' })
+   490→    }
+   491→  }
+   492→
+   493→  const cancelEdit = () => {
+   494→    setEditingId(null)
+   495→    setName('')
+   496→    setStock('')
+   497→  }
+   498→
+   499→  return (
+   500→    <div className="min-h-screen bg-zinc-50 pb-8">
+   501→      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
+   502→        <div className="flex items-center gap-3">
+   503→          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
+   504→            <X className="w-5 h-5" />
+   505→          </Button>
+   506→          <h1 className="text-lg font-semibold">Produtos</h1>
+   507→        </div>
+   508→      </header>
+   509→
+   510→      <div className="px-4 pt-4 space-y-4">
+   511→        <Card className="border-0 shadow-sm">
+   512→          <CardHeader className="pb-3 px-4 pt-4">
+   513→            <CardTitle className="text-sm text-zinc-500 font-medium">
+   514→              {editingId ? 'Editar Produto' : 'Novo Produto'}
+   515→            </CardTitle>
+   516→          </CardHeader>
+   517→          <CardContent className="px-4 pb-4 space-y-3">
+   518→            <Input
+   519→              placeholder="Nome do produto"
+   520→              value={name}
+   521→              onChange={(e) => setName(e.target.value)}
+   522→              className="h-11"
+   523→            />
+   524→            {editingId && (
+   525→              <div className="space-y-1.5">
+   526→                <label className="text-[11px] text-zinc-400 font-medium">Estoque</label>
+   527→                <Input
+   528→                  type="number"
+   529→                  placeholder="0"
+   530→                  value={stock}
+   531→                  onChange={(e) => setStock(e.target.value)}
+   532→                  className="h-11 text-sm"
+   533→                />
+   534→                <p className="text-[10px] text-zinc-400">Ajuste manual. Entradas/saídas movem o estoque automaticamente.</p>
+   535→              </div>
+   536→            )}
+   537→            <div className="flex gap-2 pt-1">
+   538→              <Button
+   539→                onClick={handleSubmit}
+   540→                disabled={loading}
+   541→                className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl"
+   542→              >
+   543→                {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Cadastrar'}
+   544→              </Button>
+   545→              {editingId && (
+   546→                <Button variant="outline" onClick={cancelEdit} className="h-11 rounded-xl">Cancelar</Button>
+   547→              )}
+   548→            </div>
+   549→          </CardContent>
+   550→        </Card>
+   551→
+   552→        <ScrollArea className="max-h-[60vh]">
+   553→          <div className="space-y-2.5">
+   554→            {products.length === 0 && (
+   555→              <p className="text-center text-zinc-400 py-12 text-sm">Nenhum produto cadastrado</p>
+   556→            )}
+   557→            {products.map((p) => (
+   558→              <Card key={p.id} className={`border-0 shadow-sm overflow-hidden ${p.stock < 0 ? 'ring-1 ring-red-300' : ''}`}>
+   559→                <CardContent className="p-0">
+   560→                  <div className="flex">
+   561→                    <div className={`w-1 shrink-0 ${p.stock > 0 ? 'bg-emerald-500' : p.stock === 0 ? 'bg-zinc-300' : 'bg-red-500'}`} />
+   562→                    <div className="flex-1 p-3.5 flex items-center justify-between">
+   563→                      <div className="flex-1 min-w-0">
+   564→                        <div className="flex items-center gap-2">
+   565→                          <p className="font-semibold text-sm truncate">{p.name}</p>
+   566→                          {p.stock < 0 && (
+   567→                            <Badge variant="secondary" className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0 border-0 shrink-0">
+   568→                              NEGATIVO
+   569→                            </Badge>
+   570→                          )}
+   571→                        </div>
+   572→                        <div className="flex items-center gap-3 mt-1.5">
+   573→                          <span className="text-xs text-zinc-500">
+   574→                            Custo médio: R$ {p.averageCost.toFixed(2)}
+   575→                          </span>
+   576→                        </div>
+   577→                        <span className={`text-xs font-medium mt-1 inline-block ${p.stock > 0 ? 'text-zinc-500' : p.stock < 0 ? 'text-red-600 font-bold' : 'text-zinc-400'}`}>
+   578→                          Estoque: {p.stock} un.
+   579→                          {p.stock < 0 && (
+   580→                            <> <span className="text-red-400">— necessario repor {Math.abs(p.stock)} un.</span></>
+   581→                          )}
+   582→                          {p.stock > 0 && p.averageCost > 0 && (
+   583→                            <> · Valor: R$ {(p.stock * p.averageCost).toFixed(2)}</>
+   584→                          )}
+   585→                        </span>
+   586→                      </div>
+   587→                      <div className="flex gap-0.5 ml-3">
+   588→                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleEdit(p)}>
+   589→                          <Edit3 className="w-4 h-4 text-zinc-400" />
+   590→                        </Button>
+   591→                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleDelete(p.id)}>
+   592→                          <Trash2 className="w-4 h-4 text-red-400" />
+   593→                        </Button>
+   594→                      </div>
+   595→                    </div>
+   596→                  </div>
+   597→                </CardContent>
+   598→              </Card>
+   599→            ))}
+   600→          </div>
+   601→        </ScrollArea>
+   602→      </div>
+   603→    </div>
+   604→  )
+   605→}
+   606→
+   607→// ========================
+   608→// Movement Screen (Entrada/Saída)
+   609→// ========================
+   610→function MovementScreen({
+   611→  type,
+   612→  onBack,
+   613→  onComplete,
+   614→}: {
+   615→  type: 'ENTRADA' | 'SAIDA'
+   616→  onBack: () => void
+   617→  onComplete: (cupomId: string) => void
+   618→}) {
+   619→  const isEntrada = type === 'ENTRADA'
+   620→  const [products, setProducts] = useState<Product[]>([])
+   621→  const [quantities, setQuantities] = useState<Record<string, string>>({})
+   622→  const [costPrices, setCostPrices] = useState<Record<string, string>>({})
+   623→  const [salePrices, setSalePrices] = useState<Record<string, string>>({})
+   624→  const [averageCosts, setAverageCosts] = useState<Record<string, number>>({})
+   625→  const [clientName, setClientName] = useState('')
+   626→  const [search, setSearch] = useState('')
+   627→  const [loading, setLoading] = useState(false)
+   628→  const { toast } = useToast()
+   629→
+   630→  useEffect(() => {
+   631→    fetch('/api/products').then((r) => r.json()).then((data: Product[]) => {
+   632→      if (!Array.isArray(data)) return
+   633→      setProducts(data)
+   634→      const avgs: Record<string, number> = {}
+   635→      data.forEach((p) => { avgs[p.id] = p.averageCost })
+   636→      setAverageCosts(avgs)
+   637→    })
+   638→  }, [])
+   639→
+   640→  const filtered = products.filter((p) =>
+   641→    p.name.toLowerCase().includes(search.toLowerCase())
+   642→  )
+   643→
+   644→  const getQty = (id: string) => parseInt(quantities[id] || '0') || 0
+   645→
+   646→  const adjustQty = (id: string, delta: number) => {
+   647→    const current = getQty(id)
+   648→    const next = Math.max(0, current + delta)
+   649→    setQuantities((prev) => ({ ...prev, [id]: next === 0 ? '' : String(next) }))
+   650→  }
+   651→
+   652→  const handleQtyInput = (id: string, val: string) => {
+   653→    setQuantities((prev) => ({ ...prev, [id]: val }))
+   654→  }
+   655→
+   656→  const setCost = (id: string, val: string) => {
+   657→    setCostPrices((prev) => ({ ...prev, [id]: val }))
+   658→  }
+   659→
+   660→  const setSale = (id: string, val: string) => {
+   661→    setSalePrices((prev) => ({ ...prev, [id]: val }))
+   662→  }
+   663→
+   664→  const selectedItems = Object.entries(quantities)
+   665→    .filter(([, q]) => q && parseInt(q) > 0)
+   666→    .map(([productId, quantity]) => ({
+   667→      productId,
+   668→      quantity: parseInt(quantity),
+   669→      costPrice: costPrices[productId] || '0',
+   670→      salePrice: salePrices[productId] || '0',
+   671→    }))
+   672→
+   673→  const totalItems = selectedItems.reduce((sum, i) => sum + i.quantity, 0)
+   674→  const totalValue = selectedItems.reduce((sum, item) => {
+   675→    if (isEntrada) {
+   676→      return sum + (parseFloat(item.costPrice) || 0) * item.quantity
+   677→    }
+   678→    return sum + (parseFloat(item.salePrice) || 0) * item.quantity
+   679→  }, 0)
+   680→
+   681→  const handleSubmit = async () => {
+   682→    if (selectedItems.length === 0) {
+   683→      toast({ title: 'Selecione ao menos um produto', variant: 'destructive' })
+   684→      return
+   685→    }
+   686→
+   687→    if (!clientName.trim()) {
+   688→      toast({ title: isEntrada ? 'Informe o nome do fornecedor' : 'Informe o nome do cliente', variant: 'destructive' })
+   689→      return
+   690→    }
+   691→
+   692→    if (isEntrada) {
+   693→      const missingCost = selectedItems.find(i => !i.costPrice || parseFloat(i.costPrice) <= 0)
+   694→      if (missingCost) {
+   695→        const p = products.find(pr => pr.id === missingCost.productId)
+   696→        toast({ title: `Informe o custo para ${p?.name || 'o produto'}`, variant: 'destructive' })
+   697→        return
+   698→      }
+   699→    }
+   700→
+   701→    if (!isEntrada) {
+   702→      const missingSale = selectedItems.find(i => !i.salePrice || parseFloat(i.salePrice) <= 0)
+   703→      if (missingSale) {
+   704→        const p = products.find(pr => pr.id === missingSale.productId)
+   705→        toast({ title: `Informe o preço de venda para ${p?.name || 'o produto'}`, variant: 'destructive' })
+   706→        return
+   707→      }
+   708→    }
+   709→
+   710→    setLoading(true)
+   711→    try {
+   712→      const res = await fetch('/api/movements', {
+   713→        method: 'POST',
+   714→        headers: { 'Content-Type': 'application/json' },
+   715→        body: JSON.stringify({
+   716→          type,
+   717→          items: selectedItems,
+   718→          clientName: clientName.trim(),
+   719→        }),
+   720→      })
+   721→      const data = await res.json()
+   722→
+   723→      if (!res.ok) {
+   724→        toast({ title: data.error, variant: 'destructive' })
+   725→        setLoading(false)
+   726→        return
+   727→      }
+   728→
+   729→      toast({ title: `${isEntrada ? 'Entrada' : 'Venda'} registrada!` })
+   730→      onComplete(data.cupomId)
+   731→    } catch {
+   732→      toast({ title: 'Erro ao registrar', variant: 'destructive' })
+   733→    }
+   734→    setLoading(false)
+   735→  }
+   736→
+   737→  const accentColor = isEntrada
+   738→    ? { active: 'bg-emerald-50 border-emerald-300', btn: 'bg-emerald-500 hover:bg-emerald-600 text-white', badge: 'bg-emerald-500/15 text-emerald-700' }
+   739→    : { active: 'bg-red-50 border-red-300', btn: 'bg-red-500 hover:bg-red-600 text-white', badge: 'bg-red-500/15 text-red-700' }
+   740→
+   741→  return (
+   742→    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+   743→      <header className={`text-white px-4 py-4 pt-safe shrink-0 ${
+   744→        isEntrada
+   745→          ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
+   746→          : 'bg-gradient-to-br from-red-500 to-red-600'
+   747→      }`}>
+   748→        <div className="flex items-center justify-between">
+   749→          <div className="flex items-center gap-3">
+   750→            <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+   751→              <X className="w-5 h-5" />
+   752→            </Button>
+   753→            <div>
+   754→              <h1 className="text-lg font-bold">
+   755→                {isEntrada ? 'Entrada' : 'Venda'}
+   756→              </h1>
+   757→              <p className="text-[11px] opacity-70">
+   758→                {isEntrada ? 'Registrar entrada' : 'Registrar venda'}
+   759→              </p>
+   760→            </div>
+   761→          </div>
+   762→          <div className="text-right">
+   763→            <p className="text-xl font-bold tabular-nums">
+   764→              R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+   765→            </p>
+   766→            <p className="text-[11px] opacity-70">
+   767→              {totalItems} {totalItems === 1 ? 'item' : 'itens'}
+   768→            </p>
+   769→          </div>
+   770→        </div>
+   771→      </header>
+   772→
+   773→      <div className="w-full px-4 pt-4 space-y-3 flex-1 flex flex-col min-h-0">
+   774→        <div className="flex items-center gap-2.5 bg-white border border-zinc-200 shadow-sm rounded-xl px-3.5 py-3 shrink-0">
+   775→          <User className={`w-4 h-4 shrink-0 ${isEntrada ? 'text-emerald-500' : 'text-red-500'}`} />
+   776→          <input
+   777→            type="text"
+   778→            placeholder={isEntrada ? 'Nome do fornecedor' : 'Nome do cliente'}
+   779→            value={clientName}
+   780→            onChange={(e) => setClientName(e.target.value)}
+   781→            className="flex-1 outline-none text-sm bg-transparent min-w-0"
+   782→          />
+   783→        </div>
+   784→
+   785→        <div className="shrink-0">
+   786→          <Input
+   787→            placeholder="Buscar produto..."
+   788→            value={search}
+   789→            onChange={(e) => setSearch(e.target.value)}
+   790→            className="h-10 text-sm shadow-sm border-zinc-200 rounded-xl"
+   791→          />
+   792→        </div>
+   793→
+   794→        <div className="flex-1 min-h-0 overflow-y-auto pb-2">
+   795→          <div className="space-y-2">
+   796→            {filtered.length === 0 && (
+   797→              <p className="text-center text-zinc-400 py-12 text-sm">
+   798→                {search ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
+   799→              </p>
+   800→            )}
+   801→            {filtered.map((p) => {
+   802→              const qty = getQty(p.id)
+   803→              const isActive = qty > 0
+   804→              const avgCost = averageCosts[p.id] || 0
+   805→
+   806→              return (
+   807→                <div
+   808→                  key={p.id}
+   809→                  className={`border rounded-xl p-3 transition-all shadow-sm ${isActive ? accentColor.active : 'border-zinc-200 bg-white'}`}
+   810→                >
+   811→                  <div className="flex items-center justify-between mb-2">
+   812→                    <div className="flex-1 min-w-0 mr-2">
+   813→                      <p className="text-sm font-semibold truncate leading-tight">{p.name}</p>
+   814→                    </div>
+   815→                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${isActive ? accentColor.badge : 'bg-zinc-100 text-zinc-400'}`}>
+   816→                      {p.stock} un.
+   817→                    </span>
+   818→                  </div>
+   819→
+   820→                  <div className="flex items-center gap-2">
+   821→                    {isEntrada ? (
+   822→                      <div className="shrink-0">
+   823→                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo (R$)</label>
+   824→                        <input
+   825→                          type="number"
+   826→                          step="0.01"
+   827→                          placeholder="0,00"
+   828→                          value={costPrices[p.id] || ''}
+   829→                          onChange={(e) => setCost(p.id, e.target.value)}
+   830→                          className="w-[72px] text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-right tabular-nums h-8"
+   831→                        />
+   832→                      </div>
+   833→                    ) : (
+   834→                      <div className="shrink-0">
+   835→                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Venda (R$)</label>
+   836→                        <input
+   837→                          type="number"
+   838→                          step="0.01"
+   839→                          placeholder="0,00"
+   840→                          value={salePrices[p.id] || ''}
+   841→                          onChange={(e) => setSale(p.id, e.target.value)}
+   842→                          className="w-[72px] text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-red-400 text-right tabular-nums h-8"
+   843→                        />
+   844→                      </div>
+   845→                    )}
+   846→
+   847→                    {!isEntrada && avgCost > 0 && (
+   848→                      <div className="shrink-0">
+   849→                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo médio</label>
+   850→                        <span className="text-[10px] text-amber-600 font-medium tabular-nums flex items-center h-8">
+   851→                          R$ {avgCost.toFixed(2)}
+   852→                        </span>
+   853→                      </div>
+   854→                    )}
+   855→
+   856→                    <div className="flex-1" />
+   857→
+   858→                    {isActive && (
+   859→                      <span className="text-xs font-bold text-zinc-700 mr-1 shrink-0 tabular-nums">
+   860→                        R$ {(isEntrada
+   861→                          ? (parseFloat(costPrices[p.id] || '0') * qty)
+   862→                          : (parseFloat(salePrices[p.id] || '0') * qty)
+   863→                        ).toFixed(2)}
+   864→                      </span>
+   865→                    )}
+   866→
+   867→                    <div className="flex items-center gap-1.5 shrink-0">
+   868→                      <button
+   869→                        onClick={() => adjustQty(p.id, -1)}
+   870→                        disabled={qty <= 0}
+   871→                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+   872→                          qty > 0
+   873→                            ? 'bg-zinc-200 hover:bg-zinc-300 text-zinc-700 active:bg-zinc-400'
+   874→                            : 'bg-zinc-100 text-zinc-300'
+   875→                        }`}
+   876→                      >
+   877→                        <Minus className="w-4 h-4" />
+   878→                      </button>
+   879→
+   880→                      <input
+   881→                        type="number"
+   882→                        min="0"
+   883→                        value={qty || ''}
+   884→                        onChange={(e) => handleQtyInput(p.id, e.target.value)}
+   885→                        placeholder="0"
+   886→                        className={`w-12 h-10 text-center text-sm font-bold rounded-xl border outline-none tabular-nums ${
+   887→                          isActive
+   888→                            ? isEntrada
+   889→                              ? 'border-emerald-300 bg-white'
+   890→                              : 'border-red-300 bg-white'
+   891→                            : 'border-zinc-200 bg-zinc-50 text-zinc-800'
+   892→                        }`}
+   893→                      />
+   894→
+   895→                      <button
+   896→                        onClick={() => adjustQty(p.id, 1)}
+   897→                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${accentColor.btn}`}
+   898→                      >
+   899→                        <Plus className="w-4 h-4" />
+   900→                      </button>
+   901→                    </div>
+   902→                  </div>
+   903→                </div>
+   904→              )
+   905→            })}
+   906→          </div>
+   907→        </div>
+   908→
+   909→        {selectedItems.length > 0 && (
+   910→          <div className="bg-white border border-zinc-200 shadow-lg rounded-2xl p-4 space-y-3 shrink-0 mt-2">
+   911→            <div className="flex justify-between text-sm">
+   912→              <span className="text-zinc-500">{selectedItems.length} produto{selectedItems.length !== 1 ? 's' : ''} · {totalItems} {totalItems === 1 ? 'item' : 'itens'}</span>
+   913→              <span className="font-bold text-lg tabular-nums">
+   914→                R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+   915→              </span>
+   916→            </div>
+   917→            <Button
+   918→              onClick={handleSubmit}
+   919→              disabled={loading}
+   920→              className={`w-full h-12 text-base font-semibold text-white rounded-xl ${
+   921→                isEntrada
+   922→                  ? 'bg-emerald-600 hover:bg-emerald-700'
+   923→                  : 'bg-red-500 hover:bg-red-600'
+   924→              }`}
+   925→            >
+   926→              {loading
+   927→                ? 'Registrando...'
+   928→                : isEntrada
+   929→                  ? 'Confirmar Entrada'
+   930→                  : 'Confirmar Venda'}
+   931→            </Button>
+   932→          </div>
+   933→        )}
+   934→      </div>
+   935→    </div>
+   936→  )
+   937→}
+   938→
+   939→// ========================
+   940→// Cupom / Receipt
+   941→// ========================
+   942→function CupomScreen({
+   943→  cupomId,
+   944→  onBack,
+   945→}: {
+   946→  cupomId: string
+   947→  onBack: () => void
+   948→}) {
+   949→  const [movements, setMovements] = useState<MovementItem[]>([])
+   950→  const [deleted, setDeleted] = useState(false)
+   951→  const [deleting, setDeleting] = useState(false)
+   952→  const { toast } = useToast()
+   953→
+   954→  useEffect(() => {
+   955→    fetch(`/api/movements?cupomId=${cupomId}`)
+   956→      .then((r) => r.json())
+   957→      .then((data) => {
+   958→        if (Array.isArray(data)) setMovements(data)
+   959→      })
+   960→  }, [cupomId])
+   961→
+   962→  const totalGeral = movements.reduce((sum, m) => sum + m.total, 0)
+   963→  const totalQtd = movements.reduce((sum, m) => sum + m.quantity, 0)
+   964→  const isEntrada = movements[0]?.type === 'ENTRADA'
+   965→  const clientName = movements[0]?.clientName
+   966→  const date = movements[0]?.createdAt
+   967→    ? new Date(movements[0].createdAt).toLocaleString('pt-BR')
+   968→    : ''
+   969→  const shortId = cupomId.slice(0, 8).toUpperCase()
+   970→
+   971→  const totalCost = movements.reduce((sum, m) => sum + ((m.averageCost || 0) * m.quantity), 0)
+   972→  const profit = totalGeral - totalCost
+   973→
+   974→  const handleDelete = async () => {
+   975→    if (!confirm(`Excluir esta ${movements[0]?.type === 'ENTRADA' ? 'entrada' : 'venda'}?\nO estoque será revertido automaticamente.`)) return
+   976→
+   977→    setDeleting(true)
+   978→    try {
+   979→      const res = await fetch(`/api/movements?cupomId=${cupomId}`, { method: 'DELETE' })
+   980→      const data = await res.json()
+   981→
+   982→      if (!res.ok) {
+   983→        toast({ title: data.error || 'Erro ao excluir', variant: 'destructive' })
+   984→        setDeleting(false)
+   985→        return
+   986→      }
+   987→
+   988→      toast({ title: `${movements[0]?.type === 'ENTRADA' ? 'Entrada' : 'Venda'} excluída! Estoque revertido.` })
+   989→      setDeleted(true)
+   990→    } catch {
+   991→      toast({ title: 'Erro ao excluir', variant: 'destructive' })
+   992→    }
+   993→    setDeleting(false)
+   994→  }
+   995→
+   996→  const handleCopy = () => {
+   997→    const separator = '------------------------------------------------'
+   998→    const itemLines = movements.map((m) => {
+   999→      if (m.type === 'ENTRADA') {
+  1000→        return `  ${String(m.quantity).padStart(3)}x  ${(m.product?.name || 'Produto').padEnd(22)} ${m.unitPrice.toFixed(2).padStart(7)}  ${m.total.toFixed(2).padStart(10)}`
+  1001→      }
+  1002→      return `  ${String(m.quantity).padStart(3)}x  ${(m.product?.name || 'Produto').padEnd(18)} ${m.unitPrice.toFixed(2).padStart(7)}  ${(m.averageCost || 0).toFixed(2).padStart(7)}  ${m.total.toFixed(2).padStart(10)}`
+  1003→    })
+  1004→    const headerLine = isEntrada
+  1005→      ? '  QTD  PRODUTO                   CUSTO      TOTAL'
+  1006→      : '  QTD  PRODUTO              VENDA  CUSTO_M     TOTAL'
+  1007→    const text = [
+  1008→      '',
+  1009→      '             CONTROLE DE ESTOQUE',
+  1010→      '',
+  1011→      `  ${isEntrada ? 'ENTRADA DE MERCADORIA' : '   COMPROVANTE DE VENDA'}`,
+  1012→      '',
+  1013→      `  Data: ${date}`,
+  1014→      clientName ? `  ${isEntrada ? 'Fornecedor' : 'Cliente'}: ${clientName}` : '',
+  1015→      '',
+  1016→      separator,
+  1017→      headerLine,
+  1018→      separator,
+  1019→      ...itemLines,
+  1020→      separator,
+  1021→      '',
+  1022→      `  Total de itens: ${totalQtd}`,
+  1023→      `  VALOR TOTAL: R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+  1024→      !isEntrada ? `  Custo total:  R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '',
+  1025→      !isEntrada ? `  Lucro:        R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '',
+  1026→      '',
+  1027→      `  Cupom: #${shortId}`,
+  1028→      '',
+  1029→    ].filter(Boolean).join('\n')
+  1030→
+  1031→    if (navigator.clipboard) {
+  1032→      navigator.clipboard.writeText(text)
+  1033→      toast({ title: 'Cupom copiado!' })
+  1034→    }
+  1035→  }
+  1036→
+  1037→  return (
+  1038→    <div className="min-h-screen bg-zinc-100 pb-safe">
+  1039→      <header className={`text-white px-4 py-4 pt-safe ${
+  1040→        isEntrada
+  1041→          ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
+  1042→          : 'bg-gradient-to-br from-red-500 to-red-600'
+  1043→      }`}>
+  1044→        <div className="flex items-center justify-between">
+  1045→          <div className="flex items-center gap-3">
+  1046→            <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+  1047→              <X className="w-5 h-5" />
+  1048→            </Button>
+  1049→            <h1 className="text-lg font-semibold">
+  1050→              {isEntrada ? 'Cupom de Entrada' : 'Comprovante de Venda'}
+  1051→            </h1>
+  1052→          </div>
+  1053→          <Button
+  1054→            variant="ghost"
+  1055→            size="icon"
+  1056→            className="text-white hover:bg-white/15"
+  1057→            onClick={handleCopy}
+  1058→          >
+  1059→            <Printer className="w-5 h-5" />
+  1060→          </Button>
+  1061→        </div>
+  1062→      </header>
+  1063→
+  1064→      <div className="px-4 pt-4">
+  1065→        <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+  1066→          <div className="bg-zinc-900 text-white text-center py-6 px-4 relative">
+  1067→            <div className="absolute top-0 left-0 right-0 h-3 bg-zinc-100 rounded-b-3xl" />
+  1068→            <div className="relative z-10 mt-2">
+  1069→              <Package className="w-7 h-7 mx-auto mb-2 text-emerald-400" />
+  1070→              <p className="text-[10px] uppercase tracking-[0.2em] opacity-60">Controle de Estoque</p>
+  1071→              <h2 className="font-bold text-lg mt-1 tracking-wide">
+  1072→                {isEntrada ? 'ENTRADA' : 'VENDA'}
+  1073→              </h2>
+  1074→              <p className="text-xs opacity-50 mt-1">{date}</p>
+  1075→            </div>
+  1076→          </div>
+  1077→
+  1078→          {clientName && (
+  1079→            <div className={`${isEntrada ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} border-b px-4 py-3`}>
+  1080→              <div className="flex items-center gap-2">
+  1081→                <User className={`w-4 h-4 ${isEntrada ? 'text-emerald-500' : 'text-red-500'}`} />
+  1082→                <span className={`text-xs font-medium uppercase tracking-wide ${isEntrada ? 'text-emerald-600' : 'text-red-600'}`}>
+  1083→                  {isEntrada ? 'Fornecedor' : 'Cliente'}
+  1084→                </span>
+  1085→              </div>
+  1086→              <p className="font-semibold text-sm mt-0.5">{clientName}</p>
+  1087→            </div>
+  1088→          )}
+  1089→
+  1090→          <div className="px-4 py-3">
+  1091→            {isEntrada ? (
+  1092→              <>
+  1093→                <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
+  1094→                  <span className="flex-1">Produto</span>
+  1095→                  <span className="w-10 text-right">Qtd</span>
+  1096→                  <span className="w-16 text-right">Custo</span>
+  1097→                  <span className="w-20 text-right">Total</span>
+  1098→                </div>
+  1099→                {movements.map((m, i) => (
+  1100→                  <div key={m.id}>
+  1101→                    <div className="flex items-center py-2.5 px-1">
+  1102→                      <div className="flex-1 min-w-0">
+  1103→                        <p className="text-sm font-medium text-zinc-800 truncate">
+  1104→                          {m.product?.name || 'Produto'}
+  1105→                        </p>
+  1106→                      </div>
+  1107→                      <span className="w-10 text-right text-sm text-zinc-600">{m.quantity}</span>
+  1108→                      <span className="w-16 text-right text-sm text-zinc-600 tabular-nums">
+  1109→                        R$ {m.unitPrice.toFixed(2)}
+  1110→                      </span>
+  1111→                      <span className="w-20 text-right text-sm font-semibold text-zinc-800 tabular-nums">
+  1112→                        R$ {m.total.toFixed(2)}
+  1113→                      </span>
+  1114→                    </div>
+  1115→                    {i < movements.length - 1 && (
+  1116→                      <div className="border-b border-dashed border-zinc-200 mx-1" />
+  1117→                    )}
+  1118→                  </div>
+  1119→                ))}
+  1120→              </>
+  1121→            ) : (
+  1122→              <>
+  1123→                <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
+  1124→                  <span className="flex-1">Produto</span>
+  1125→                  <span className="w-10 text-right">Qtd</span>
+  1126→                  <span className="w-16 text-right">Venda</span>
+  1127→                  <span className="w-16 text-right">Custo M.</span>
+  1128→                  <span className="w-20 text-right">Total</span>
+  1129→                </div>
+  1130→                {movements.map((m, i) => (
+  1131→                  <div key={m.id}>
+  1132→                    <div className="flex items-center py-2.5 px-1">
+  1133→                      <div className="flex-1 min-w-0">
+  1134→                        <p className="text-sm font-medium text-zinc-800 truncate">
+  1135→                          {m.product?.name || 'Produto'}
+  1136→                        </p>
+  1137→                      </div>
+  1138→                      <span className="w-10 text-right text-sm text-zinc-600">{m.quantity}</span>
+  1139→                      <span className="w-16 text-right text-sm text-zinc-600 tabular-nums">
+  1140→                        R$ {m.unitPrice.toFixed(2)}
+  1141→                      </span>
+  1142→                      <span className="w-16 text-right text-xs text-amber-600 tabular-nums">
+  1143→                        R$ {(m.averageCost || 0).toFixed(2)}
+  1144→                      </span>
+  1145→                      <span className="w-20 text-right text-sm font-semibold text-zinc-800 tabular-nums">
+  1146→                        R$ {m.total.toFixed(2)}
+  1147→                      </span>
+  1148→                    </div>
+  1149→                    {i < movements.length - 1 && (
+  1150→                      <div className="border-b border-dashed border-zinc-200 mx-1" />
+  1151→                    )}
+  1152→                  </div>
+  1153→                ))}
+  1154→              </>
+  1155→            )}
+  1156→          </div>
+  1157→
+  1158→          <div className="border-t-2 border-zinc-900 px-4 py-4">
+  1159→            <div className="flex justify-between items-center">
+  1160→              <div>
+  1161→                <p className="text-xs text-zinc-400">{totalQtd} {totalQtd === 1 ? 'item' : 'itens'}</p>
+  1162→                {!isEntrada && (
+  1163→                  <p className="text-[10px] text-amber-600 mt-0.5">
+  1164→                    Custo médio total: R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  1165→                    {profit >= 0 ? (
+  1166→                      <span className="text-emerald-600 ml-2">+R$ {profit.toFixed(2)}</span>
+  1167→                    ) : (
+  1168→                      <span className="text-red-500 ml-2">R$ {profit.toFixed(2)}</span>
+  1169→                    )}
+  1170→                  </p>
+  1171→                )}
+  1172→              </div>
+  1173→              <div className="text-right">
+  1174→                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Total</p>
+  1175→                <p className="text-2xl font-bold text-zinc-900 tabular-nums">
+  1176→                  R$ {totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  1177→                </p>
+  1178→              </div>
+  1179→            </div>
+  1180→          </div>
+  1181→
+  1182→          <div className="bg-zinc-50 border-t border-dashed border-zinc-200 px-4 py-3 text-center relative">
+  1183→            <div className="absolute bottom-0 left-0 right-0 h-3 bg-zinc-100 rounded-t-3xl" />
+  1184→            <div className="relative z-10 mb-2">
+  1185→              <p className="text-[10px] text-zinc-400 tracking-widest uppercase">
+  1186→                Cupom #{shortId}
+  1187→              </p>
+  1188→            </div>
+  1189→          </div>
+  1190→        </div>
+  1191→
+  1192→        <div className="flex gap-3 mt-4">
+  1193→          <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={onBack}>
+  1194→            Voltar ao Início
+  1195→          </Button>
+  1196→          <Button onClick={handleCopy} className="flex-1 h-12 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl">
+  1197→            <Printer className="w-4 h-4 mr-2" />
+  1198→            Copiar
+  1199→          </Button>
+  1200→        </div>
+  1201→
+  1202→        {!deleted && (
+  1203→          <Button
+  1204→            variant="ghost"
+  1205→            onClick={handleDelete}
+  1206→            disabled={deleting}
+  1207→            className="w-full h-11 text-red-500 hover:text-red-600 hover:bg-red-50 text-sm mt-2 rounded-xl"
+  1208→          >
+  1209→            <Trash2 className="w-4 h-4 mr-2" />
+  1210→            {deleting ? 'Excluindo...' : 'Excluir esta movimentação'}
+  1211→          </Button>
+  1212→        )}
+  1213→
+  1214→        {deleted && (
+  1215→          <div className="text-center py-8">
+  1216→            <p className="text-sm font-medium text-red-600">Movimentação excluída</p>
+  1217→            <p className="text-xs text-zinc-400 mt-1">O estoque foi revertido com sucesso.</p>
+  1218→            <Button variant="outline" className="mt-4 rounded-xl" onClick={onBack}>
+  1219→              Voltar ao Início
+  1220→            </Button>
+  1221→          </div>
+  1222→        )}
+  1223→      </div>
+  1224→    </div>
+  1225→  )
+  1226→}
+  1227→
+  1228→// ========================
+  1229→// Movements History
+  1230→// ========================
+  1231→function MovementsScreen({ onBack }: { onBack: () => void }) {
+  1232→  const [movements, setMovements] = useState<MovementItem[]>([])
+  1233→  const [filter, setFilter] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS')
+  1234→  const [expandedId, setExpandedId] = useState<string | null>(null)
+  1235→  const { toast } = useToast()
+  1236→
+  1237→  const [, startTransition] = useTransition()
+  1238→
+  1239→  const loadMovements = useCallback(async () => {
+  1240→    try {
+  1241→      const params = filter !== 'TODOS' ? `?type=${filter}` : ''
+  1242→      const res = await fetch(`/api/movements${params}`)
+  1243→      const data = await res.json()
+  1244→      if (Array.isArray(data)) {
+  1245→        startTransition(() => setMovements(data))
+  1246→      }
+  1247→    } catch {
+  1248→      toast({ title: 'Erro ao carregar movimentações', variant: 'destructive' })
+  1249→    }
+  1250→  }, [filter, toast, startTransition])
+  1251→
+  1252→  useEffect(() => { loadMovements() }, [loadMovements])
+  1253→
+  1254→  const grouped = movements.reduce<Record<string, MovementItem[]>>((acc, m) => {
+  1255→    if (!acc[m.cupomId || 'orphan']) acc[m.cupomId || 'orphan'] = []
+  1256→    acc[m.cupomId || 'orphan'].push(m)
+  1257→    return acc
+  1258→  }, {})
+  1259→
+  1260→  const handleDelete = async (cupomIdVal: string, type: string) => {
+  1261→    if (!confirm(`Excluir esta ${type === 'ENTRADA' ? 'entrada' : 'venda'}?\nO estoque será revertido automaticamente.`)) return
+  1262→
+  1263→    try {
+  1264→      const res = await fetch(`/api/movements?cupomId=${cupomIdVal}`, { method: 'DELETE' })
+  1265→      const data = await res.json()
+  1266→
+  1267→      if (!res.ok) {
+  1268→        toast({ title: data.error || 'Erro ao excluir', variant: 'destructive' })
+  1269→        return
+  1270→      }
+  1271→
+  1272→      toast({ title: `${type === 'ENTRADA' ? 'Entrada' : 'Venda'} excluída! Estoque revertido.` })
+  1273→      setExpandedId(null)
+  1274→      loadMovements()
+  1275→    } catch {
+  1276→      toast({ title: 'Erro ao excluir', variant: 'destructive' })
+  1277→    }
+  1278→  }
+  1279→
+  1280→  return (
+  1281→    <div className="min-h-screen bg-zinc-50 pb-8">
+  1282→      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
+  1283→        <div className="flex items-center gap-3">
+  1284→          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
+  1285→            <X className="w-5 h-5" />
+  1286→          </Button>
+  1287→          <h1 className="text-lg font-semibold">Movimentações</h1>
+  1288→        </div>
+  1289→      </header>
+  1290→
+  1291→      <div className="px-4 pt-4 space-y-4">
+  1292→        <div className="flex gap-2">
+  1293→          {(['TODOS', 'ENTRADA', 'SAIDA'] as const).map((f) => (
+  1294→            <button
+  1295→              key={f}
+  1296→              onClick={() => setFilter(f)}
+  1297→              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+  1298→                filter === f
+  1299→                  ? f === 'ENTRADA'
+  1300→                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
+  1301→                    : f === 'SAIDA'
+  1302→                      ? 'bg-red-500 text-white shadow-sm shadow-red-200'
+  1303→                      : 'bg-zinc-900 text-white shadow-sm shadow-zinc-300'
+  1304→                  : 'bg-white text-zinc-500 border border-zinc-200 hover:bg-zinc-100'
+  1305→              }`}
+  1306→            >
+  1307→              {f === 'TODOS' ? 'Todos' : f === 'ENTRADA' ? 'Entradas' : 'Vendas'}
+  1308→            </button>
+  1309→          ))}
+  1310→        </div>
+  1311→
+  1312→        <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+  1313→          <div className="space-y-2.5">
+  1314→            {Object.keys(grouped).length === 0 && (
+  1315→              <p className="text-center text-zinc-400 py-12 text-sm">
+  1316→                Nenhuma movimentação registrada
+  1317→              </p>
+  1318→            )}
+  1319→            {Object.entries(grouped).map(([cupomId, items]) => {
+  1320→              const isEntrada = items[0].type === 'ENTRADA'
+  1321→              const total = items.reduce((sum, m) => sum + m.total, 0)
+  1322→              const totalQtd = items.reduce((sum, m) => sum + m.quantity, 0)
+  1323→              const dateShort = new Date(items[0].createdAt).toLocaleDateString('pt-BR')
+  1324→              const dateFull = new Date(items[0].createdAt).toLocaleString('pt-BR')
+  1325→              const client = items[0].clientName
+  1326→              const isExpanded = expandedId === cupomId
+  1327→
+  1328→              return (
+  1329→                <div key={cupomId}>
+  1330→                  <div
+  1331→                    onClick={() => setExpandedId((prev) => prev === cupomId ? null : cupomId)}
+  1332→                    className={`border rounded-xl p-3.5 transition-all cursor-pointer active:scale-[0.99] shadow-sm ${
+  1333→                      isExpanded
+  1334→                        ? isEntrada
+  1335→                          ? 'border-emerald-300 bg-emerald-50/50'
+  1336→                          : 'border-red-300 bg-red-50/50'
+  1337→                        : 'border-zinc-200 bg-white'
+  1338→                    }`}
+  1339→                  >
+  1340→                    <div className="flex items-center gap-2">
+  1341→                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${
+  1342→                        isEntrada ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+  1343→                      }`}>
+  1344→                        {isEntrada ? 'ENTRADA' : 'VENDA'}
+  1345→                      </span>
+  1346→                      <div className="flex-1 min-w-0">
+  1347→                        <div className="flex items-center gap-1.5">
+  1348→                          <span className="text-xs text-zinc-400">{dateShort}</span>
+  1349→                          {client && (
+  1350→                            <>
+  1351→                              <span className="text-zinc-300">·</span>
+  1352→                              <span className={`text-xs font-medium truncate ${
+  1353→                                isEntrada ? 'text-emerald-600' : 'text-red-600'
+  1354→                              }`}>
+  1355→                                {client}
+  1356→                              </span>
+  1357→                            </>
+  1358→                          )}
+  1359→                        </div>
+  1360→                        <p className="text-[11px] text-zinc-400 mt-0.5">
+  1361→                          {totalQtd} {totalQtd === 1 ? 'item' : 'itens'}
+  1362→                          {!isExpanded && ' · toque para detalhes'}
+  1363→                        </p>
+  1364→                      </div>
+  1365→                      <div className="flex items-center gap-1 shrink-0">
+  1366→                        <span className="font-bold text-sm tabular-nums mr-1">
+  1367→                          R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  1368→                        </span>
+  1369→                        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+  1370→                      </div>
+  1371→                    </div>
+  1372→                  </div>
+  1373→
+  1374→                  {isExpanded && (
+  1375→                    <div className="border-x border-b rounded-b-xl bg-white shadow-sm overflow-hidden">
+  1376→                      <div className="px-3.5 py-2 bg-zinc-50 border-b border-zinc-100">
+  1377→                        <div className="flex justify-between text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
+  1378→                          <span className="flex-1">Produto</span>
+  1379→                          <span className="w-10 text-right">Qtd</span>
+  1380→                          <span className="w-16 text-right">Unit.</span>
+  1381→                          {!isEntrada && <span className="w-16 text-right">Custo M.</span>}
+  1382→                          <span className={`w-[72px] text-right`}>Total</span>
+  1383→                        </div>
+  1384→                      </div>
+  1385→                      {items.map((m) => (
+  1386→                        <div key={m.id} className="flex items-center px-3.5 py-2">
+  1387→                          <span className="flex-1 text-xs text-zinc-700 truncate">
+  1388→                            {m.product?.name || 'Produto'}
+  1389→                          </span>
+  1390→                          <span className="w-10 text-right text-xs text-zinc-500">{m.quantity}</span>
+  1391→                          <span className="w-16 text-right text-xs text-zinc-500 tabular-nums">
+  1392→                            R$ {m.unitPrice.toFixed(2)}
+  1393→                          </span>
+  1394→                          {!isEntrada && (
+  1395→                            <span className="w-16 text-right text-[10px] text-amber-600 tabular-nums">
+  1396→                              R$ {(m.averageCost || 0).toFixed(2)}
+  1397→                            </span>
+  1398→                          )}
+  1399→                          <span className={`w-[72px] text-right text-xs font-semibold text-zinc-800 tabular-nums`}>
+  1400→                            R$ {m.total.toFixed(2)}
+  1401→                          </span>
+  1402→                        </div>
+  1403→                      ))}
+  1404→                      <div className="px-3.5 py-2.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
+  1405→                        <span className="text-[11px] text-zinc-400">{dateFull}</span>
+  1406→                        <div className="flex items-center gap-2">
+  1407→                          <span className="text-xs font-bold tabular-nums">
+  1408→                            Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  1409→                          </span>
+  1410→                          <button
+  1411→                            onClick={(e) => { e.stopPropagation(); handleDelete(cupomId, items[0].type) }}
+  1412→                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-red-500 hover:text-white hover:bg-red-500 transition-colors"
+  1413→                          >
+  1414→                            <Trash2 className="w-3 h-3" />
+  1415→                            Excluir
+  1416→                          </button>
+  1417→                        </div>
+  1418→                      </div>
+  1419→                    </div>
+  1420→                  )}
+  1421→                </div>
+  1422→              )
+  1423→            })}
+  1424→          </div>
+  1425→        </div>
+  1426→      </div>
+  1427→    </div>
+  1428→  )
+  1429→}
+  1430→
+  1431→// ========================
+  1432→// NF-e Upload Screen
+  1433→// ========================
+  1434→interface NfeProduct {
+  1435→  name: string
+  1436→  quantity: number
+  1437→  unit: string
+  1438→  unitCost: number
+  1439→  total: number
+  1440→  ncm: string
+  1441→  cfop: string
+  1442→}
+  1443→
+  1444→interface NfeData {
+  1445→  numero: string
+  1446→  serie: string
+  1447→  dataEmissao: string
+  1448→  emitente: { cnpj: string; nome: string; uf: string }
+  1449→  produtos: NfeProduct[]
+  1450→  valorTotal: number
+  1451→  valorProdutos: number
+  1452→}
+  1453→
+  1454→function NfeScreen({ onBack }: { onBack: () => void }) {
+  1455→  const [nfeData, setNfeData] = useState<NfeData | null>(null)
+  1456→  const [fileName, setFileName] = useState('')
+  1457→  const [loading, setLoading] = useState(false)
+  1458→  const [importing, setImporting] = useState(false)
+  1459→  const [dragOver, setDragOver] = useState(false)
+  1460→  const { toast } = useToast()
+  1461→
+  1462→  const handleFile = async (file: File) => {
+  1463→    if (!file.name.endsWith('.xml')) {
+  1464→      toast({ title: 'Apenas arquivos .xml', variant: 'destructive' })
+  1465→      return
+  1466→    }
+  1467→
+  1468→    setFileName(file.name)
+  1469→    setLoading(true)
+  1470→    setNfeData(null)
+  1471→
+  1472→    const formData = new FormData()
+  1473→    formData.append('xml', file)
+  1474→    formData.append('action', 'parse')
+  1475→
+  1476→    try {
+  1477→      const res = await fetch('/api/nfe', {
+  1478→        method: 'POST',
+  1479→        body: formData,
+  1480→      })
+  1481→      const data = await res.json()
+  1482→
+  1483→      if (!res.ok) {
+  1484→        toast({ title: data.error || 'Erro ao ler NF-e', variant: 'destructive' })
+  1485→        setLoading(false)
+  1486→        return
+  1487→      }
+  1488→
+  1489→      setNfeData(data.data)
+  1490→      toast({ title: `${data.data.produtos.length} produto(s) encontrados!` })
+  1491→    } catch {
+  1492→      toast({ title: 'Erro ao processar arquivo', variant: 'destructive' })
+  1493→    }
+  1494→    setLoading(false)
+  1495→  }
+  1496→
+  1497→  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  1498→  const storedFileRef = React.useRef<File | null>(null)
+  1499→
+  1500→  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  1501→    const file = e.target.files?.[0]
+  1502→    if (file) {
+  1503→      storedFileRef.current = file
+  1504→      handleFile(file)
+  1505→    }
+  1506→  }
+  1507→
+  1508→  const handleDrop = (e: React.DragEvent) => {
+  1509→    e.preventDefault()
+  1510→    setDragOver(false)
+  1511→    const file = e.dataTransfer.files?.[0]
+  1512→    if (file) {
+  1513→      storedFileRef.current = file
+  1514→      handleFile(file)
+  1515→    }
+  1516→  }
+  1517→
+  1518→  const handleConfirmImport = async () => {
+  1519→    if (!nfeData || !storedFileRef.current) {
+  1520→      toast({ title: 'Arquivo nao encontrado, faca upload novamente', variant: 'destructive' })
+  1521→      return
+  1522→    }
+  1523→
+  1524→    setImporting(true)
+  1525→    const formData = new FormData()
+  1526→    formData.append('xml', storedFileRef.current)
+  1527→    formData.append('action', 'confirm')
+  1528→
+  1529→    try {
+  1530→      const res = await fetch('/api/nfe', {
+  1531→        method: 'POST',
+  1532→        body: formData,
+  1533→      })
+  1534→      const data = await res.json()
+  1535→
+  1536→      if (!res.ok) {
+  1537→        toast({ title: data.error || 'Erro ao importar', variant: 'destructive' })
+  1538→        setImporting(false)
+  1539→        return
+  1540→      }
+  1541→
+  1542→      toast({ title: `NF-e importada! ${data.totalItens} itens importados` })
+  1543→      onBack()
+  1544→    } catch {
+  1545→      toast({ title: 'Erro ao importar NF-e', variant: 'destructive' })
+  1546→    }
+  1547→    setImporting(false)
+  1548→  }
+  1549→
+  1550→  const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
+  1551→
+  1552→  return (
+  1553→    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+  1554→      <header className="bg-gradient-to-br from-teal-600 to-teal-700 text-white px-4 py-4 pt-safe shrink-0">
+  1555→        <div className="flex items-center gap-3">
+  1556→          <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+  1557→            <X className="w-5 h-5" />
+  1558→          </Button>
+  1559→          <div>
+  1560→            <h1 className="text-lg font-bold">Entrada por NF-e</h1>
+  1561→            <p className="text-[11px] opacity-70">Importar Nota Fiscal eletronica</p>
+  1562→          </div>
+  1563→        </div>
+  1564→      </header>
+  1565→
+  1566→      <div className="w-full px-4 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
+  1567→        {/* Upload area */}
+  1568→        {!nfeData && (
+  1569→          <div
+  1570→            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+  1571→              dragOver ? 'border-teal-400 bg-teal-50' : 'border-zinc-300 bg-white hover:border-zinc-400'
+  1572→            }`}
+  1573→            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+  1574→            onDragLeave={() => setDragOver(false)}
+  1575→            onDrop={handleDrop}
+  1576→            onClick={() => fileInputRef.current?.click()}
+  1577→          >
+  1578→            <input
+  1579→              ref={fileInputRef}
+  1580→              type="file"
+  1581→              accept=".xml"
+  1582→              className="hidden"
+  1583→              onChange={handleFileChange}
+  1584→            />
+  1585→            {loading ? (
+  1586→              <div className="flex flex-col items-center gap-3">
+  1587→                <div className="w-8 h-8 border-2 border-zinc-300 border-t-teal-500 rounded-full animate-spin" />
+  1588→                <p className="text-sm text-zinc-500">Lendo NF-e...</p>
+  1589→              </div>
+  1590→            ) : (
+  1591→              <>
+  1592→                <div className="w-14 h-14 rounded-2xl bg-teal-100 flex items-center justify-center mx-auto mb-3">
+  1593→                  <FileUp className="w-7 h-7 text-teal-600" />
+  1594→                </div>
+  1595→                <p className="font-semibold text-sm text-zinc-700">
+  1596→                  {dragOver ? 'Solte o arquivo aqui' : 'Toque para selecionar o XML'}
+  1597→                </p>
+  1598→                <p className="text-xs text-zinc-400 mt-1">
+  1599→                  Arraste o arquivo .xml da NF-e ou toque para buscar
+  1600→                </p>
+  1601→              </>
+  1602→            )}
+  1603→          </div>
+  1604→        )}
+  1605→
+  1606→        {/* NF-e Data */}
+  1607→        {nfeData && (
+  1608→          <>
+  1609→            {/* NF Header */}
+  1610→            <Card className="border-0 shadow-sm overflow-hidden">
+  1611→              <CardContent className="p-4 space-y-3">
+  1612→                <div className="flex items-start justify-between">
+  1613→                  <div className="flex-1 min-w-0">
+  1614→                    <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">Nota Fiscal Eletronica</p>
+  1615→                    <p className="font-bold text-base text-zinc-900 mt-0.5">
+  1616→                      NF-e {nfeData.numero?.padStart(9, '0')}{nfeData.serie ? ` Serie ${nfeData.serie}` : ''}
+  1617→                    </p>
+  1618→                  </div>
+  1619→                  <Badge variant="secondary" className="bg-teal-100 text-teal-700 text-xs border-0 shrink-0 mt-3">
+  1620→                    {nfeData.dataEmissao}
+  1621→                  </Badge>
+  1622→                </div>
+  1623→                <div className="text-xs text-zinc-500 space-y-0.5">
+  1624→                  <p><span className="font-medium text-zinc-700">Emitente:</span> {nfeData.emitente.nome}</p>
+  1625→                  {nfeData.emitente.cnpj && <p><span className="font-medium text-zinc-700">CNPJ:</span> {nfeData.emitente.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}</p>}
+  1626→                  {nfeData.emitente.uf && <p><span className="font-medium text-zinc-700">UF:</span> {nfeData.emitente.uf}</p>}
+  1627→                </div>
+  1628→                <div className="flex gap-3 pt-1">
+  1629→                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+  1630→                    <p className="text-[10px] text-zinc-400">Produtos</p>
+  1631→                    <p className="text-lg font-bold text-zinc-800">{nfeData.produtos.length}</p>
+  1632→                  </div>
+  1633→                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+  1634→                    <p className="text-[10px] text-zinc-400">Itens total</p>
+  1635→                    <p className="text-lg font-bold text-zinc-800">{totalQtd}</p>
+  1636→                  </div>
+  1637→                  <div className="flex-1 bg-teal-50 rounded-lg p-2.5 text-center">
+  1638→                    <p className="text-[10px] text-teal-600">Valor NF</p>
+  1639→                    <p className="text-lg font-bold text-teal-700 tabular-nums">
+  1640→                      R$ {nfeData.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  1641→                    </p>
+  1642→                  </div>
+  1643→                </div>
+  1644→              </CardContent>
+  1645→            </Card>
+  1646→
+  1647→            {/* Products list */}
+  1648→            <div className="flex-1 min-h-0 overflow-y-auto">
+  1649→              <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1 flex">
+  1650→                <span className="flex-1">Produto</span>
+  1651→                <span className="w-12 text-right">Qtd</span>
+  1652→                <span className="w-14 text-right">Unit.</span>
+  1653→                <span className="w-14 text-right">Un.</span>
+  1654→                <span className="w-20 text-right">Total</span>
+  1655→              </div>
+  1656→              <div className="space-y-1.5">
+  1657→                {nfeData.produtos.map((p, i) => (
+  1658→                  <Card key={i} className="border-0 shadow-sm">
+  1659→                    <CardContent className="p-3">
+  1660→                      <p className="text-sm font-medium text-zinc-800 leading-tight mb-1.5">{p.name}</p>
+  1661→                      <div className="flex items-center text-xs">
+  1662→                        <span className="flex-1 text-zinc-400 truncate">
+  1663→                          {p.ncm ? `NCM: ${p.ncm}` : ''}{p.cfop ? ` · CFOP: ${p.cfop}` : ''}
+  1664→                        </span>
+  1665→                        <span className="w-12 text-right text-zinc-600">{p.quantity}</span>
+  1666→                        <span className="w-14 text-right text-zinc-600 tabular-nums">R$ {p.unitCost.toFixed(2)}</span>
+  1667→                        <span className="w-14 text-right text-zinc-400">{p.unit}</span>
+  1668→                        <span className="w-20 text-right font-semibold text-zinc-800 tabular-nums">R$ {p.total.toFixed(2)}</span>
+  1669→                      </div>
+  1670→                    </CardContent>
+  1671→                  </Card>
+  1672→                ))}
+  1673→              </div>
+  1674→            </div>
+  1675→
+  1676→            {/* Action buttons */}
+  1677→            <div className="space-y-2 shrink-0 mt-2">
+  1678→              <Button
+  1679→                onClick={handleConfirmImport}
+  1680→                disabled={importing}
+  1681→                className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl"
+  1682→              >
+  1683→                {importing ? 'Importando...' : `Confirmar Importacao de ${nfeData.produtos.length} produto(s)`}
+  1684→              </Button>
+  1685→              <Button
+  1686→                variant="outline"
+  1687→                onClick={() => { setNfeData(null); setFileName('') }}
+  1688→                className="w-full h-10 rounded-xl"
+  1689→              >
+  1690→                Enviar outro XML
+  1691→              </Button>
+  1692→            </div>
+  1693→          </>
+  1694→        )}
+  1695→      </div>
+  1696→    </div>
+  1697→  )
+  1698→}
+  1699→
+  1700→// ========================
+  1701→// NF-e Saida Screen
+  1702→// ========================
+  1703→interface NfeProductStock {
+  1704→  name: string
+  1705→  exists: boolean
+  1706→  currentStock: number
+  1707→  dbId?: string
+  1708→}
+  1709→
+  1710→function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
+  1711→  const [nfeData, setNfeData] = useState<NfeData | null>(null)
+  1712→  const [productsWithStock, setProductsWithStock] = useState<NfeProductStock[]>([])
+  1713→  const [fileName, setFileName] = useState('')
+  1714→  const [loading, setLoading] = useState(false)
+  1715→  const [importing, setImporting] = useState(false)
+  1716→  const [dragOver, setDragOver] = useState(false)
+  1717→  const [importResult, setImportResult] = useState<{
+  1718→    totalItens: number
+  1719→    negativeStockCount: number
+  1720→    negativeItems: { name: string; previousStock: number; newStock: number }[]
+  1721→  } | null>(null)
+  1722→  const { toast } = useToast()
+  1723→
+  1724→  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  1725→  const storedFileRef = React.useRef<File | null>(null)
+  1726→
+  1727→  const handleFile = async (file: File) => {
+  1728→    if (!file.name.endsWith('.xml')) {
+  1729→      toast({ title: 'Apenas arquivos .xml', variant: 'destructive' })
+  1730→      return
+  1731→    }
+  1732→
+  1733→    setFileName(file.name)
+  1734→    setLoading(true)
+  1735→    setNfeData(null)
+  1736→    setProductsWithStock([])
+  1737→    setImportResult(null)
+  1738→
+  1739→    const formData = new FormData()
+  1740→    formData.append('xml', file)
+  1741→    formData.append('action', 'parse')
+  1742→    formData.append('nfeType', 'saida')
+  1743→
+  1744→    try {
+  1745→      const res = await fetch('/api/nfe', {
+  1746→        method: 'POST',
+  1747→        body: formData,
+  1748→      })
+  1749→      const data = await res.json()
+  1750→
+  1751→      if (!res.ok) {
+  1752→        toast({ title: data.error || 'Erro ao ler NF-e', variant: 'destructive' })
+  1753→        setLoading(false)
+  1754→        return
+  1755→      }
+  1756→
+  1757→      setNfeData(data.data)
+  1758→      setProductsWithStock(data.productsWithStock || [])
+  1759→      toast({ title: `${data.data.produtos.length} produto(s) encontrados!` })
+  1760→    } catch {
+  1761→      toast({ title: 'Erro ao processar arquivo', variant: 'destructive' })
+  1762→    }
+  1763→    setLoading(false)
+  1764→  }
+  1765→
+  1766→  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  1767→    const file = e.target.files?.[0]
+  1768→    if (file) {
+  1769→      storedFileRef.current = file
+  1770→      handleFile(file)
+  1771→    }
+  1772→  }
+  1773→
+  1774→  const handleDrop = (e: React.DragEvent) => {
+  1775→    e.preventDefault()
+  1776→    setDragOver(false)
+  1777→    const file = e.dataTransfer.files?.[0]
+  1778→    if (file) {
+  1779→      storedFileRef.current = file
+  1780→      handleFile(file)
+  1781→    }
+  1782→  }
+  1783→
+  1784→  const handleConfirmImport = async () => {
+  1785→    if (!nfeData || !storedFileRef.current) {
+  1786→      toast({ title: 'Arquivo nao encontrado, faca upload novamente', variant: 'destructive' })
+  1787→      return
+  1788→    }
+  1789→
+  1790→    setImporting(true)
+  1791→    const formData = new FormData()
+  1792→    formData.append('xml', storedFileRef.current)
+  1793→    formData.append('action', 'confirm')
+  1794→    formData.append('nfeType', 'saida')
+  1795→
+  1796→    try {
+  1797→      const res = await fetch('/api/nfe', {
+  1798→        method: 'POST',
+  1799→        body: formData,
+  1800→      })
+  1801→      const data = await res.json()
+  1802→
+  1803→      if (!res.ok) {
+  1804→        toast({ title: data.error || 'Erro ao importar', variant: 'destructive' })
+  1805→        setImporting(false)
+  1806→        return
+  1807→      }
+  1808→
+  1809→      if (data.negativeStockCount > 0) {
+  1810→        toast({
+  1811→          title: `Saida importada! ${data.negativeStockCount} produto(s) com estoque negativo`,
+  1812→          description: 'Verifique os itens em vermelho abaixo',
+  1813→          variant: 'destructive',
+  1814→        })
+  1815→      } else {
+  1816→        toast({ title: `NF-e de saida importada! ${data.totalItens} itens` })
+  1817→      }
+  1818→
+  1819→      setImportResult({
+  1820→        totalItens: data.totalItens,
+  1821→        negativeStockCount: data.negativeStockCount,
+  1822→        negativeItems: data.negativeItems || [],
+  1823→      })
+  1824→    } catch {
+  1825→      toast({ title: 'Erro ao importar NF-e', variant: 'destructive' })
+  1826→    }
+  1827→    setImporting(false)
+  1828→  }
+  1829→
+  1830→  const getStockInfo = (productName: string) => {
+  1831→    return productsWithStock.find(p => p.name === productName)
+  1832→  }
+  1833→
+  1834→  const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
+  1835→
+  1836→  return (
+  1837→    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+  1838→      <header className="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 py-4 pt-safe shrink-0">
+  1839→        <div className="flex items-center gap-3">
+  1840→          <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+  1841→            <X className="w-5 h-5" />
+  1842→          </Button>
+  1843→          <div>
+  1844→            <h1 className="text-lg font-bold">Saida por NF-e</h1>
+  1845→            <p className="text-[11px] opacity-70">Importar Nota Fiscal de saida</p>
+  1846→          </div>
+  1847→        </div>
+  1848→      </header>
+  1849→
+  1850→      <div className="w-full px-4 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
+  1851→        {/* Upload area */}
+  1852→        {!nfeData && !importResult && (
+  1853→          <div
+  1854→            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+  1855→              dragOver ? 'border-orange-400 bg-orange-50' : 'border-zinc-300 bg-white hover:border-zinc-400'
+  1856→            }`}
+  1857→            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+  1858→            onDragLeave={() => setDragOver(false)}
+  1859→            onDrop={handleDrop}
+  1860→            onClick={() => fileInputRef.current?.click()}
+  1861→          >
+  1862→            <input
+  1863→              ref={fileInputRef}
+  1864→              type="file"
+  1865→              accept=".xml"
+  1866→              className="hidden"
+  1867→              onChange={handleFileChange}
+  1868→            />
+  1869→            {loading ? (
+  1870→              <div className="flex flex-col items-center gap-3">
+  1871→                <div className="w-8 h-8 border-2 border-zinc-300 border-t-orange-500 rounded-full animate-spin" />
+  1872→                <p className="text-sm text-zinc-500">Lendo NF-e de saida...</p>
+  1873→              </div>
+  1874→            ) : (
+  1875→              <>
+  1876→                <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-3">
+  1877→                  <FileUp className="w-7 h-7 text-orange-600" />
+  1878→                </div>
+  1879→                <p className="font-semibold text-sm text-zinc-700">
+  1880→                  {dragOver ? 'Solte o arquivo aqui' : 'Toque para selecionar o XML'}
+  1881→                </p>
+  1882→                <p className="text-xs text-zinc-400 mt-1">
+  1883→                  Arraste o XML da NF-e de saida ou toque para buscar
+  1884→                </p>
+  1885→              </>
+  1886→            )}
+  1887→          </div>
+  1888→        )}
+  1889→
+  1890→        {/* Import Result Summary */}
+  1891→        {importResult && (
+  1892→          <Card className="border-0 shadow-sm overflow-hidden">
+  1893→            <CardContent className="p-4 space-y-3">
+  1894→              <div className="flex items-center gap-3 mb-2">
+  1895→                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${importResult.negativeStockCount > 0 ? 'bg-red-100' : 'bg-emerald-100'}`}>
+  1896→                  {importResult.negativeStockCount > 0
+  1897→                    ? <Package className="w-5 h-5 text-red-600" />
+  1898→                    : <Package className="w-5 h-5 text-emerald-600" />
+  1899→                  }
+  1900→                </div>
+  1901→                <div className="flex-1">
+  1902→                  <p className="font-bold text-sm text-zinc-900">
+  1903→                    {importResult.totalItens} produto(s) saida registrada
+  1904→                  </p>
+  1905→                  <p className="text-xs text-zinc-500">
+  1906→                    {importResult.negativeStockCount > 0
+  1907→                      ? `${importResult.negativeStockCount} com estoque negativo`
+  1908→                      : 'Todos com estoque suficiente'}
+  1909→                  </p>
+  1910→                </div>
+  1911→              </div>
+  1912→
+  1913→              {importResult.negativeItems.length > 0 && (
+  1914→                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+  1915→                  <p className="text-xs font-bold text-red-700 uppercase tracking-wide">Itens com estoque negativo</p>
+  1916→                  {importResult.negativeItems.map((item, i) => (
+  1917→                    <div key={i} className="flex items-center justify-between text-xs">
+  1918→                      <span className="text-red-800 font-medium truncate mr-2">{item.name}</span>
+  1919→                      <span className="text-red-600 font-bold tabular-nums shrink-0">
+  1920→                        {item.newStock} un.
+  1921→                      </span>
+  1922→                    </div>
+  1923→                  ))}
+  1924→                  <p className="text-[10px] text-red-500 pt-1">
+  1925→                    Estes itens precisam ser repostos. O estoque negativo indica saida sem estoque disponivel.
+  1926→                  </p>
+  1927→                </div>
+  1928→              )}
+  1929→
+  1930→              <div className="flex gap-2 pt-1">
+  1931→                <Button
+  1932→                  onClick={onBack}
+  1933→                  className="flex-1 h-11 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-xl"
+  1934→                >
+  1935→                  Voltar ao Dashboard
+  1936→                </Button>
+  1937→                <Button
+  1938→                  variant="outline"
+  1939→                  onClick={() => { setNfeData(null); setProductsWithStock([]); setImportResult(null); setFileName('') }}
+  1940→                  className="h-11 rounded-xl"
+  1941→                >
+  1942→                  Importar outra
+  1943→                </Button>
+  1944→              </div>
+  1945→            </CardContent>
+  1946→          </Card>
+  1947→        )}
+  1948→
+  1949→        {/* NF-e Data Preview */}
+  1950→        {nfeData && !importResult && (
+  1951→          <>
+  1952→            <Card className="border-0 shadow-sm overflow-hidden">
+  1953→              <CardContent className="p-4 space-y-3">
+  1954→                <div className="flex items-start justify-between">
+  1955→                  <div className="flex-1 min-w-0">
+  1956→                    <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">Nota Fiscal de Saida</p>
+  1957→                    <p className="font-bold text-base text-zinc-900 mt-0.5">
+  1958→                      NF-e {nfeData.numero?.padStart(9, '0')}{nfeData.serie ? ` Serie ${nfeData.serie}` : ''}
+  1959→                    </p>
+  1960→                  </div>
+  1961→                  <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs border-0 shrink-0 mt-3">
+  1962→                    {nfeData.dataEmissao}
+  1963→                  </Badge>
+  1964→                </div>
+  1965→                <div className="text-xs text-zinc-500 space-y-0.5">
+  1966→                  <p><span className="font-medium text-zinc-700">Emitente:</span> {nfeData.emitente.nome}</p>
+  1967→                  {nfeData.emitente.cnpj && <p><span className="font-medium text-zinc-700">CNPJ:</span> {nfeData.emitente.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}</p>}
+  1968→                </div>
+  1969→                <div className="flex gap-3 pt-1">
+  1970→                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+  1971→                    <p className="text-[10px] text-zinc-400">Produtos</p>
+  1972→                    <p className="text-lg font-bold text-zinc-800">{nfeData.produtos.length}</p>
+  1973→                  </div>
+  1974→                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+  1975→                    <p className="text-[10px] text-zinc-400">Itens total</p>
+  1976→                    <p className="text-lg font-bold text-zinc-800">{totalQtd}</p>
+  1977→                  </div>
+  1978→                  <div className="flex-1 bg-orange-50 rounded-lg p-2.5 text-center">
+  1979→                    <p className="text-[10px] text-orange-600">Valor NF</p>
+  1980→                    <p className="text-lg font-bold text-orange-700 tabular-nums">
+  1981→                      R$ {nfeData.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  1982→                    </p>
+  1983→                  </div>
+  1984→                </div>
+  1985→              </CardContent>
+  1986→            </Card>
+  1987→
+  1988→            {/* Products list with stock info */}
+  1989→            <div className="flex-1 min-h-0 overflow-y-auto">
+  1990→              <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1 flex">
+  1991→                <span className="flex-1">Produto</span>
+  1992→                <span className="w-14 text-right">Estoque</span>
+  1993→                <span className="w-12 text-right">Qtd</span>
+  1994→                <span className="w-20 text-right">V. Unit.</span>
+  1995→                <span className="w-20 text-right">Total</span>
+  1996→              </div>
+  1997→              <div className="space-y-1.5">
+  1998→                {nfeData.produtos.map((p, i) => {
+  1999→                  const stockInfo = getStockInfo(p.name)
+  2000→                  const willGoNegative = stockInfo && (stockInfo.currentStock - Math.round(p.quantity)) < 0
+
+[showing lines 1-2000 of 2440; use offset=2001 with limit to continue reading]
