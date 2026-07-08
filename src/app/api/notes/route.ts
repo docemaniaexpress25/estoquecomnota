@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     const notes = await db.note.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 20,
+      orderBy: { updatedAt: 'desc' },
+      take: 1,
     })
     return NextResponse.json(notes)
   } catch (error) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const { content } = body
 
     if (!content || !content.trim()) {
-      return NextResponse.json({ error: 'Conteúdo é obrigatório' }, { status: 400 })
+      return NextResponse.json({ error: 'Conteudo e obrigatorio' }, { status: 400 })
     }
 
     const note = await db.note.create({
@@ -39,12 +39,8 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { id, content } = body
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
-    }
-
-    if (!content || !content.trim()) {
-      return NextResponse.json({ error: 'Conteúdo é obrigatório' }, { status: 400 })
+    if (!id || !content) {
+      return NextResponse.json({ error: 'ID e conteudo sao obrigatorios' }, { status: 400 })
     }
 
     const note = await db.note.update({
@@ -56,23 +52,5 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error('Erro ao atualizar nota:', error)
     return NextResponse.json({ error: 'Erro ao atualizar nota' }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
-    }
-
-    await db.note.delete({ where: { id } })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Erro ao deletar nota:', error)
-    return NextResponse.json({ error: 'Erro ao deletar nota' }, { status: 500 })
   }
 }
