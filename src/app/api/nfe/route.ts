@@ -175,6 +175,58 @@ function parseNfeXml(xmlString: string): NfeParsed {
   }
 }
 
+// 3-layer product deduplication: barcode → name → create
+async function findOrCreateProduct(item: NfeProduct) {
+  const validBarcode = item.codBarras && item.codBarras !== 'SEM GTIN' && item.codBarras.trim() !== ''
+
+  // Layer 1: By barcode (EAN)
+  if (validBarcode) {
+    const byBarcode = await db.product.findFirst({
+      where: { barcode: item.codBarras },
+    })
+    if (byBarcode) {
+      // Update ncm if the product was found by barcode but ncm is missing
+      if (!byBarcode.ncm && item.ncm) {
+        await db.product.update({
+          where: { id: byBarcode.id },
+          data: { ncm: item.ncm },
+        })
+      }
+      return { product: byBarcode, isNew: false }
+    }
+  }
+
+  // Layer 2: By exact name
+  const byName = await db.product.findFirst({
+    where: { name: item.name },
+  })
+  if (byName) {
+    // Update barcode/ncm if missing
+    if (validBarcode && !byName.barcode) {
+      await db.product.update({
+        where: { id: byName.id },
+        data: { barcode: item.codBarras, ncm: item.ncm || byName.ncm },
+      })
+    } else if (item.ncm && !byName.ncm) {
+      await db.product.update({
+        where: { id: byName.id },
+        data: { ncm: item.ncm },
+      })
+    }
+    return { product: byName, isNew: false }
+  }
+
+  // Layer 3: Create new product with barcode and ncm
+  const newProduct = await db.product.create({
+    data: {
+      name: item.name,
+      barcode: validBarcode ? item.codBarras : null,
+      ncm: item.ncm || null,
+    },
+  })
+  return { product: newProduct, isNew: true }
+}
+
 // POST: Parse and import NF-e XML (entrada ou saida)
 export async function POST(request: Request) {
   try {
@@ -203,14 +255,12 @@ export async function POST(request: Request) {
         const productsWithStock: { name: string; exists: boolean; currentStock: number; dbId?: string }[] = []
 
         for (const item of nfe.produtos) {
-          const existing = await db.product.findFirst({
-            where: { name: item.name },
-          })
+          const { product } = await findOrCreateProduct(item)
           productsWithStock.push({
             name: item.name,
-            exists: !!existing,
-            currentStock: existing ? existing.stock : 0,
-            dbId: existing?.id || undefined,
+            exists: !!product,
+            currentStock: product ? product.stock : 0,
+            dbId: product?.id || undefined,
           })
         }
 
@@ -247,17 +297,7 @@ export async function POST(request: Request) {
         for (const item of nfe.produtos) {
           if (item.quantity <= 0) continue
 
-          // Find existing product (must exist for saida)
-          let product = await db.product.findFirst({
-            where: { name: item.name },
-          })
-
-          if (!product) {
-            // Auto-create product with 0 stock for saida NF-e
-            product = await db.product.create({
-              data: { name: item.name },
-            })
-          }
+          const { product } = await findOrCreateProduct(item)
 
           const qty = Math.round(item.quantity)
           const salePrice = item.unitCost // vUnCom is the unit price
@@ -340,18 +380,7 @@ export async function POST(request: Request) {
       for (const item of nfe.produtos) {
         if (item.quantity <= 0) continue
 
-        const wasNew = !await db.product.findFirst({ where: { name: item.name } })
-
-        // Find or create product
-        let product = await db.product.findFirst({
-          where: { name: item.name },
-        })
-
-        if (!product) {
-          product = await db.product.create({
-            data: { name: item.name },
-          })
-        }
+        const { product, isNew } = await findOrCreateProduct(item)
 
         const qty = Math.round(item.quantity)
         const total = item.unitCost * qty
@@ -389,7 +418,7 @@ export async function POST(request: Request) {
         results.push({
           productName: item.name,
           productId: product.id,
-          isNew: wasNew,
+          isNew,
           quantity: qty,
           unitCost: item.unitCost,
           total,

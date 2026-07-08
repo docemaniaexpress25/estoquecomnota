@@ -4,10 +4,8 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     const notes = await db.note.findMany({
-      orderBy: [
-        { pinned: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: { createdAt: 'desc' },
+      take: 20,
     })
     return NextResponse.json(notes)
   } catch (error) {
@@ -19,21 +17,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { title, content, color } = body
+    const { content } = body
 
-    if (!title || !title.trim()) {
-      return NextResponse.json({ error: 'Título é obrigatório' }, { status: 400 })
+    if (!content || !content.trim()) {
+      return NextResponse.json({ error: 'Conteúdo é obrigatório' }, { status: 400 })
     }
 
-    const validColors = ['zinc', 'emerald', 'red', 'amber', 'blue']
-    const noteColor = validColors.includes(color) ? color : 'zinc'
-
     const note = await db.note.create({
-      data: {
-        title: title.trim(),
-        content: content?.trim() || null,
-        color: noteColor,
-      },
+      data: { content: content.trim() },
     })
 
     return NextResponse.json(note, { status: 201 })
@@ -46,27 +37,19 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { id, title, content, color, pinned } = body
+    const { id, content } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
     }
 
-    const updateData: Record<string, unknown> = {}
-    if (title !== undefined) updateData.title = title.trim()
-    if (content !== undefined) updateData.content = content?.trim() || null
-    if (pinned !== undefined) updateData.pinned = pinned
-
-    if (color !== undefined) {
-      const validColors = ['zinc', 'emerald', 'red', 'amber', 'blue']
-      if (validColors.includes(color)) {
-        updateData.color = color
-      }
+    if (!content || !content.trim()) {
+      return NextResponse.json({ error: 'Conteúdo é obrigatório' }, { status: 400 })
     }
 
     const note = await db.note.update({
       where: { id },
-      data: updateData,
+      data: { content: content.trim() },
     })
 
     return NextResponse.json(note)

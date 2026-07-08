@@ -24,6 +24,7 @@ import {
   ChevronDown,
   CalendarDays,
   FileUp,
+  FileText,
 } from 'lucide-react'
 
 // Types
@@ -147,21 +148,79 @@ function Dashboard({
   todayMovements,
   totalStockValue,
   negativeStockCount,
+  todayEntriesValue,
+  todayExitsValue,
+  todayProfit,
 }: {
   onNavigate: (view: string) => void
   productCount: number
   todayMovements: number
   totalStockValue: number
   negativeStockCount: number
+  todayEntriesValue: number
+  todayExitsValue: number
+  todayProfit: number
 }) {
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   })
+  const { toast } = useToast()
+  const [noteContent, setNoteContent] = useState('')
+  const noteIdRef = useRef<string | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Load latest note on mount
+  useEffect(() => {
+    fetch('/api/notes')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          noteIdRef.current = data[0].id
+          setNoteContent(data[0].content || '')
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const saveNote = useCallback(() => {
+    const content = noteContent.trim()
+    if (!content) return
+
+    if (noteIdRef.current) {
+      fetch('/api/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: noteIdRef.current, content }),
+      }).catch(() => {})
+    } else {
+      fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.id) noteIdRef.current = data.id
+        })
+        .catch(() => {})
+    }
+    toast({ title: 'Salvo' })
+  }, [noteContent, toast])
+
+  const handleNoteBlur = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      saveNote()
+    }, 300)
+  }
+
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-8">
+      {/* Header */}
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-5 pt-safe pb-5">
         <div className="flex items-center justify-between">
           <div>
@@ -178,28 +237,28 @@ function Dashboard({
       </header>
 
       <div className="px-4 -mt-1 space-y-4">
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-          <CardContent className="p-5 relative z-10">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-white" />
+        {/* Financial Balance Card */}
+        <Card className="border-0 shadow-sm bg-white overflow-hidden">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold mb-3">Balanço do Dia</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Entradas</p>
+                <p className="text-sm font-bold text-emerald-700 mt-0.5 tabular-nums">R$ {fmt(todayEntriesValue)}</p>
               </div>
-              <div className="flex-1">
-                <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">Valor Total em Estoque</p>
-                <p className="text-3xl font-bold mt-0.5 tabular-nums tracking-tight">
-                  R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
+              <div className="text-center">
+                <p className="text-[10px] text-red-500 font-medium uppercase tracking-wide">Saídas</p>
+                <p className="text-sm font-bold text-red-600 mt-0.5 tabular-nums">R$ {fmt(todayExitsValue)}</p>
               </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
-              <span className="text-emerald-100 text-xs">{productCount} produto{productCount !== 1 ? 's' : ''}</span>
-              <span className="text-emerald-100 text-xs">{todayMovements} movimentação{todayMovements !== 1 ? 'ões' : ''} hoje</span>
+              <div className="text-center">
+                <p className="text-[10px] text-sky-600 font-medium uppercase tracking-wide">Lucro</p>
+                <p className={`text-sm font-bold mt-0.5 tabular-nums ${todayProfit >= 0 ? 'text-sky-700' : 'text-red-600'}`}>R$ {fmt(todayProfit)}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Negative Stock Alert */}
         {negativeStockCount > 0 && (
           <button
             onClick={() => onNavigate('produtos')}
@@ -222,7 +281,38 @@ function Dashboard({
           </button>
         )}
 
+        {/* Notes Block */}
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-zinc-500" />
+              <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Anotações</p>
+            </div>
+            <textarea
+              value={noteContent}
+              onChange={(e) => setNoteContent(e.target.value)}
+              onBlur={handleNoteBlur}
+              placeholder="Escreva suas anotações aqui..."
+              className="w-full text-sm text-zinc-700 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-300 placeholder:text-zinc-400"
+              style={{ maxHeight: '120px', minHeight: '60px' }}
+              rows={3}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Action Grid - 6 buttons in 2-column grid */}
         <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => onNavigate('nfe')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-teal-100 flex items-center justify-center mb-3 group-active:bg-teal-200 transition-colors">
+              <FileUp className="w-5 h-5 text-teal-600" />
+            </div>
+            <p className="font-semibold text-sm text-zinc-900">Entrada XML</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de entrada</p>
+          </button>
+
           <button
             onClick={() => onNavigate('entrada')}
             className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
@@ -230,8 +320,19 @@ function Dashboard({
             <div className="h-11 w-11 rounded-xl bg-emerald-100 flex items-center justify-center mb-3 group-active:bg-emerald-200 transition-colors">
               <ArrowDownToLine className="w-5 h-5 text-emerald-600" />
             </div>
-            <p className="font-semibold text-sm text-zinc-900">Entrada</p>
-            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar entrada de produtos</p>
+            <p className="font-semibold text-sm text-zinc-900">Entrada Manual</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar entrada manual</p>
+          </button>
+
+          <button
+            onClick={() => onNavigate('nfe_saida')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-orange-100 flex items-center justify-center mb-3 group-active:bg-orange-200 transition-colors">
+              <ArrowUpFromLine className="w-5 h-5 text-orange-600" />
+            </div>
+            <p className="font-semibold text-sm text-zinc-900">Saída XML</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de saída</p>
           </button>
 
           <button
@@ -239,9 +340,9 @@ function Dashboard({
             className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
           >
             <div className="h-11 w-11 rounded-xl bg-red-100 flex items-center justify-center mb-3 group-active:bg-red-200 transition-colors">
-              <ArrowUpFromLine className="w-5 h-5 text-red-600" />
+              <PackagePlus className="w-5 h-5 text-red-600" />
             </div>
-            <p className="font-semibold text-sm text-zinc-900">Saída</p>
+            <p className="font-semibold text-sm text-zinc-900">Venda Rápida</p>
             <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Registrar venda/saída</p>
           </button>
 
@@ -250,40 +351,46 @@ function Dashboard({
             className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
           >
             <div className="h-11 w-11 rounded-xl bg-zinc-100 flex items-center justify-center mb-3 group-active:bg-zinc-200 transition-colors">
-              <PackagePlus className="w-5 h-5 text-zinc-600" />
+              <Package className="w-5 h-5 text-zinc-600" />
             </div>
             <p className="font-semibold text-sm text-zinc-900">Produtos</p>
             <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Cadastrar e gerenciar</p>
           </button>
 
           <button
-            onClick={() => onNavigate('movimentacoes')}
+            onClick={() => onNavigate('relatorio')}
             className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
           >
             <div className="h-11 w-11 rounded-xl bg-zinc-100 flex items-center justify-center mb-3 group-active:bg-zinc-200 transition-colors">
               <History className="w-5 h-5 text-zinc-600" />
             </div>
-            <p className="font-semibold text-sm text-zinc-900">Histórico</p>
-            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Entradas e saídas</p>
-          </button>
-          <button
-            onClick={() => onNavigate('nfe')}
-            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
-          >
-            <div className="h-11 w-11 rounded-xl bg-teal-100 flex items-center justify-center mb-3 group-active:bg-teal-200 transition-colors"><FileUp className="w-5 h-5 text-teal-600" /></div>
-            <p className="font-semibold text-sm text-zinc-900">Entrada NF-e</p>
-            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de entrada</p>
-          </button>
-
-          <button
-            onClick={() => onNavigate('nfe_saida')}
-            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
-          >
-            <div className="h-11 w-11 rounded-xl bg-orange-100 flex items-center justify-center mb-3 group-active:bg-orange-200 transition-colors"><ArrowUpFromLine className="w-5 h-5 text-orange-600" /></div>
-            <p className="font-semibold text-sm text-zinc-900">Saída NF-e</p>
-            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de saída</p>
+            <p className="font-semibold text-sm text-zinc-900">Relatório</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Balanço de produtos</p>
           </button>
         </div>
+
+        {/* Stock Value Card */}
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+          <CardContent className="p-5 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">Valor Total em Estoque</p>
+                <p className="text-3xl font-bold mt-0.5 tabular-nums tracking-tight">
+                  R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
+              <span className="text-emerald-100 text-xs">{productCount} produto{productCount !== 1 ? 's' : ''}</span>
+              <span className="text-emerald-100 text-xs">{todayMovements} movimentação{todayMovements !== 1 ? 'ões' : ''} hoje</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -1961,6 +2068,221 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
 }
 
 // ========================
+// Report Screen
+// ========================
+interface ReportProductRow {
+  id: string
+  name: string
+  ncm: string | null
+  barcode: string | null
+  entryQty: number
+  entryValue: number
+  exitQty: number
+  exitValue: number
+  stock: number
+  stockValue: number
+}
+
+function ReportScreen({ onBack }: { onBack: () => void }) {
+  const [products, setProducts] = useState<Product[]>([])
+  const [movements, setMovements] = useState<MovementItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<'hoje' | 'mes' | 'tudo'>('tudo')
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/products').then(r => r.json()),
+      fetch('/api/movements').then(r => r.json()),
+    ]).then(([prods, movs]) => {
+      if (Array.isArray(prods)) setProducts(prods)
+      if (Array.isArray(movs)) setMovements(movs)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
+  // Filter movements by period
+  const filteredMovements = movements.filter(m => {
+    if (period === 'tudo') return true
+    const d = new Date(m.createdAt)
+    const now = new Date()
+    if (period === 'hoje') {
+      return d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10)
+    }
+    if (period === 'mes') {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    }
+    return true
+  })
+
+  // Build product rows
+  const productMap = new Map<string, ReportProductRow>()
+  for (const p of products) {
+    productMap.set(p.id, {
+      id: p.id, name: p.name, ncm: (p as unknown as { ncm?: string }).ncm || null,
+      barcode: (p as unknown as { barcode?: string }).barcode || null,
+      entryQty: 0, entryValue: 0, exitQty: 0, exitValue: 0,
+      stock: p.stock, stockValue: p.stock * p.averageCost,
+    })
+  }
+
+  for (const m of filteredMovements) {
+    const row = productMap.get(m.productId)
+    if (!row) continue
+    if (m.type === 'ENTRADA') {
+      row.entryQty += m.quantity
+      row.entryValue += m.total
+    } else {
+      row.exitQty += m.quantity
+      row.exitValue += m.total
+    }
+  }
+
+  let rows = Array.from(productMap.values())
+
+  // Search filter
+  if (search.trim()) {
+    const s = search.toLowerCase()
+    rows = rows.filter(r => r.name.toLowerCase().includes(s))
+  }
+
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+
+  const totalEntryValue = rows.reduce((s, r) => s + r.entryValue, 0)
+  const totalExitValue = rows.reduce((s, r) => s + r.exitValue, 0)
+  const totalCost = filteredMovements
+    .filter(m => m.type === 'SAIDA')
+    .reduce((s, m) => s + ((m.averageCost || 0) * m.quantity), 0)
+  const totalProfit = totalExitValue - totalCost
+  const totalStockValue = rows.reduce((s, r) => s + r.stockValue, 0)
+
+  return (
+    <div className="min-h-screen bg-zinc-50 pb-8">
+      <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
+            <X className="w-5 h-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Relatório</h1>
+        </div>
+      </header>
+
+      <div className="px-4 pt-4 space-y-3">
+        {/* Period filter */}
+        <div className="flex gap-2">
+          {(['hoje', 'mes', 'tudo'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+                period === p
+                  ? 'bg-zinc-900 text-white shadow-sm shadow-zinc-300'
+                  : 'bg-white text-zinc-500 border border-zinc-200 hover:bg-zinc-100'
+              }`}
+            >
+              {p === 'hoje' ? 'Hoje' : p === 'mes' ? 'Mês' : 'Tudo'}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <Input
+          placeholder="Buscar produto..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-10 text-sm shadow-sm border-zinc-200 rounded-xl"
+        />
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Product rows */}
+            <div className="space-y-2">
+              {rows.length === 0 && (
+                <p className="text-center text-zinc-400 py-12 text-sm">Nenhum produto encontrado</p>
+              )}
+              {rows.map((r) => (
+                <Card key={r.id} className={`border-0 shadow-sm overflow-hidden ${r.stock < 0 ? 'ring-1 ring-red-300' : ''}`}>
+                  <CardContent className="p-3 space-y-1.5">
+                    <div className="flex items-start justify-between">
+                      <p className="font-semibold text-sm text-zinc-900 leading-tight flex-1 min-w-0 mr-2">{r.name}</p>
+                      <span className={`text-xs font-bold tabular-nums shrink-0 ${r.stock < 0 ? 'text-red-600' : 'text-zinc-600'}`}>
+                        Est: {r.stock}
+                      </span>
+                    </div>
+                    {(r.ncm || r.barcode) && (
+                      <p className="text-[10px] text-zinc-400">
+                        {r.ncm && <>NCM: {r.ncm}</>}
+                        {r.ncm && r.barcode && ' · '}
+                        {r.barcode && r.barcode !== 'SEM GTIN' && <>GTIN: {r.barcode}</>}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-3 gap-1 text-[10px] pt-1">
+                      <div>
+                        <p className="text-zinc-400">Qtd Entradas</p>
+                        <p className="font-semibold text-zinc-700">{r.entryQty}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-400">R$ Entradas</p>
+                        <p className="font-semibold text-emerald-700">R$ {fmt(r.entryValue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-400">Qtd Saídas</p>
+                        <p className="font-semibold text-zinc-700">{r.exitQty}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-400">R$ Saídas</p>
+                        <p className="font-semibold text-red-600">R$ {fmt(r.exitValue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-400">Estoque</p>
+                        <p className={`font-semibold ${r.stock < 0 ? 'text-red-600' : 'text-zinc-700'}`}>{r.stock} un.</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-400">V. Estoque</p>
+                        <p className="font-semibold text-zinc-700">R$ {fmt(r.stockValue)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Footer summary */}
+            <Card className="border-0 shadow-sm bg-zinc-900 text-white">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2">Resumo</p>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400">Total Entradas</span>
+                    <span className="font-bold text-emerald-400 tabular-nums">R$ {fmt(totalEntryValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400">Total Saídas</span>
+                    <span className="font-bold text-red-400 tabular-nums">R$ {fmt(totalExitValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400">Lucro</span>
+                    <span className={`font-bold tabular-nums ${totalProfit >= 0 ? 'text-sky-400' : 'text-red-400'}`}>R$ {fmt(totalProfit)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400">Estoque Total</span>
+                    <span className="font-bold text-emerald-300 tabular-nums">R$ {fmt(totalStockValue)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ========================
 // Main App
 // ========================
 export default function Home() {
@@ -1971,6 +2293,9 @@ export default function Home() {
   const [todayMovements, setTodayMovements] = useState(0)
   const [totalStockValue, setTotalStockValue] = useState(0)
   const [negativeStockCount, setNegativeStockCount] = useState(0)
+  const [todayEntriesValue, setTodayEntriesValue] = useState(0)
+  const [todayExitsValue, setTodayExitsValue] = useState(0)
+  const [todayProfit, setTodayProfit] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [, startTransition] = useTransition()
 
@@ -1987,9 +2312,22 @@ export default function Home() {
 
       const count = products.length
       const today = new Date().toISOString().slice(0, 10)
-      const todayMov = movements.filter(
+      const todayMovs = movements.filter(
         (m) => m.createdAt && m.createdAt.slice(0, 10) === today
-      ).length
+      )
+
+      const todayMovCount = todayMovs.length
+      const entriesValue = todayMovs
+        .filter(m => m.type === 'ENTRADA')
+        .reduce((sum, m) => sum + m.total, 0)
+      const exitsValue = todayMovs
+        .filter(m => m.type === 'SAIDA')
+        .reduce((sum, m) => sum + m.total, 0)
+      const exitsCost = todayMovs
+        .filter(m => m.type === 'SAIDA')
+        .reduce((sum, m) => sum + ((m.averageCost || 0) * m.quantity), 0)
+      const profit = exitsValue - exitsCost
+
       const stockVal = products.reduce((sum, p) => {
         const avgCost = p.averageCost || 0
         return sum + (avgCost * p.stock)
@@ -1999,9 +2337,12 @@ export default function Home() {
 
       startTransition(() => {
         setProductCount(count)
-        setTodayMovements(todayMov)
+        setTodayMovements(todayMovCount)
         setTotalStockValue(stockVal)
         setNegativeStockCount(negCount)
+        setTodayEntriesValue(entriesValue)
+        setTodayExitsValue(exitsValue)
+        setTodayProfit(profit)
       })
     } catch {
       // silently fail
@@ -2045,6 +2386,9 @@ export default function Home() {
           todayMovements={todayMovements}
           totalStockValue={totalStockValue}
           negativeStockCount={negativeStockCount}
+          todayEntriesValue={todayEntriesValue}
+          todayExitsValue={todayExitsValue}
+          todayProfit={todayProfit}
         />
       )
 
@@ -2085,6 +2429,9 @@ export default function Home() {
 
     case 'nfe_saida':
       return <NfeSaidaScreen onBack={handleBackToDashboard} />
+
+    case 'relatorio':
+      return <ReportScreen onBack={handleBackToDashboard} />
 
     default:
       return null
