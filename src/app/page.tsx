@@ -80,7 +80,7 @@ function PinScreen({ onAccess }: { onAccess: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center px-4 pb-safe">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center px-4 pb-safe">
       <div className="mb-10 text-center">
         <div className="relative inline-block">
           <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl scale-150" />
@@ -219,7 +219,7 @@ function Dashboard({
   const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
       {/* Header */}
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-5 pt-safe pb-5">
         <div className="flex items-center justify-between">
@@ -242,17 +242,17 @@ function Dashboard({
           <CardContent className="p-4">
             <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold mb-3">Balanço do Dia</p>
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
+              <div className="text-center min-w-0">
                 <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Entradas</p>
-                <p className="text-sm font-bold text-emerald-700 mt-0.5 tabular-nums">R$ {fmt(todayEntriesValue)}</p>
+                <p className="text-xs font-bold text-emerald-700 mt-0.5 tabular-nums truncate">R$ {fmt(todayEntriesValue)}</p>
               </div>
-              <div className="text-center">
+              <div className="text-center min-w-0">
                 <p className="text-[10px] text-red-500 font-medium uppercase tracking-wide">Saídas</p>
-                <p className="text-sm font-bold text-red-600 mt-0.5 tabular-nums">R$ {fmt(todayExitsValue)}</p>
+                <p className="text-xs font-bold text-red-600 mt-0.5 tabular-nums truncate">R$ {fmt(todayExitsValue)}</p>
               </div>
-              <div className="text-center">
+              <div className="text-center min-w-0">
                 <p className="text-[10px] text-sky-600 font-medium uppercase tracking-wide">Lucro</p>
-                <p className={`text-sm font-bold mt-0.5 tabular-nums ${todayProfit >= 0 ? 'text-sky-700' : 'text-red-600'}`}>R$ {fmt(todayProfit)}</p>
+                <p className={`text-xs font-bold mt-0.5 tabular-nums truncate ${todayProfit >= 0 ? 'text-sky-700' : 'text-red-600'}`}>R$ {fmt(todayProfit)}</p>
               </div>
             </div>
           </CardContent>
@@ -378,9 +378,9 @@ function Dashboard({
               <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                 <Wallet className="w-6 h-6 text-white" />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">Valor Total em Estoque</p>
-                <p className="text-3xl font-bold mt-0.5 tabular-nums tracking-tight">
+                <p className="text-2xl sm:text-3xl font-bold mt-0.5 tabular-nums tracking-tight truncate">
                   R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
@@ -497,7 +497,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
@@ -739,19 +739,19 @@ function MovementScreen({
     : { active: 'bg-red-50 border-red-300', btn: 'bg-red-500 hover:bg-red-600 text-white', badge: 'bg-red-500/15 text-red-700' }
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
       <header className={`text-white px-4 py-4 pt-safe shrink-0 ${
         isEntrada
           ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
           : 'bg-gradient-to-br from-red-500 to-red-600'
       }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2 shrink-0" onClick={onBack}>
               <X className="w-5 h-5" />
             </Button>
-            <div>
-              <h1 className="text-lg font-bold">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold truncate">
                 {isEntrada ? 'Entrada' : 'Venda'}
               </h1>
               <p className="text-[11px] opacity-70">
@@ -759,8 +759,8 @@ function MovementScreen({
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-xl font-bold tabular-nums">
+          <div className="text-right shrink-0">
+            <p className="text-xl font-bold tabular-nums truncate">
               R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
             <p className="text-[11px] opacity-70">
@@ -817,7 +817,7 @@ function MovementScreen({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {isEntrada ? (
                       <div className="shrink-0">
                         <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo (R$)</label>
@@ -827,7 +827,7 @@ function MovementScreen({
                           placeholder="0,00"
                           value={costPrices[p.id] || ''}
                           onChange={(e) => setCost(p.id, e.target.value)}
-                          className="w-[72px] text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-right tabular-nums h-8"
+                          className="w-16 text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-right tabular-nums h-8"
                         />
                       </div>
                     ) : (
@@ -839,7 +839,7 @@ function MovementScreen({
                           placeholder="0,00"
                           value={salePrices[p.id] || ''}
                           onChange={(e) => setSale(p.id, e.target.value)}
-                          className="w-[72px] text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-red-400 text-right tabular-nums h-8"
+                          className="w-16 text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-red-400 text-right tabular-nums h-8"
                         />
                       </div>
                     )}
@@ -853,10 +853,10 @@ function MovementScreen({
                       </div>
                     )}
 
-                    <div className="flex-1" />
+                    <div className="flex-1 min-w-0" />
 
                     {isActive && (
-                      <span className="text-xs font-bold text-zinc-700 mr-1 shrink-0 tabular-nums">
+                      <span className="text-xs font-bold text-zinc-700 shrink-0 tabular-nums">
                         R$ {(isEntrada
                           ? (parseFloat(costPrices[p.id] || '0') * qty)
                           : (parseFloat(salePrices[p.id] || '0') * qty)
@@ -1035,7 +1035,7 @@ function CupomScreen({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100 pb-safe">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-100 pb-safe">
       <header className={`text-white px-4 py-4 pt-safe ${
         isEntrada
           ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
@@ -1087,72 +1087,30 @@ function CupomScreen({
             </div>
           )}
 
-          <div className="px-4 py-3">
-            {isEntrada ? (
-              <>
-                <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
-                  <span className="flex-1">Produto</span>
-                  <span className="w-10 text-right">Qtd</span>
-                  <span className="w-16 text-right">Custo</span>
-                  <span className="w-20 text-right">Total</span>
-                </div>
-                {movements.map((m, i) => (
-                  <div key={m.id}>
-                    <div className="flex items-center py-2.5 px-1">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-800 truncate">
-                          {m.product?.name || 'Produto'}
-                        </p>
-                      </div>
-                      <span className="w-10 text-right text-sm text-zinc-600">{m.quantity}</span>
-                      <span className="w-16 text-right text-sm text-zinc-600 tabular-nums">
-                        R$ {m.unitPrice.toFixed(2)}
-                      </span>
-                      <span className="w-20 text-right text-sm font-semibold text-zinc-800 tabular-nums">
-                        R$ {m.total.toFixed(2)}
-                      </span>
-                    </div>
-                    {i < movements.length - 1 && (
-                      <div className="border-b border-dashed border-zinc-200 mx-1" />
-                    )}
+          <div className="px-4 py-3 space-y-2">
+            {movements.map((m, i) => (
+              <div key={m.id}>
+                <div className="py-1.5 px-1">
+                  <p className="text-sm font-medium text-zinc-800 truncate leading-tight">
+                    {m.product?.name || 'Produto'}
+                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs text-zinc-500">Qtd: {m.quantity}{!isEntrada && ` · Unit: R$ ${m.unitPrice.toFixed(2)}`}</span>
+                    <span className="text-sm font-bold text-zinc-800 tabular-nums">
+                      R$ {m.total.toFixed(2)}
+                    </span>
                   </div>
-                ))}
-              </>
-            ) : (
-              <>
-                <div className="flex text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1">
-                  <span className="flex-1">Produto</span>
-                  <span className="w-10 text-right">Qtd</span>
-                  <span className="w-16 text-right">Venda</span>
-                  <span className="w-16 text-right">Custo M.</span>
-                  <span className="w-20 text-right">Total</span>
+                  {!isEntrada && m.averageCost !== null && m.averageCost > 0 && (
+                    <p className="text-[10px] text-amber-600 mt-0.5 tabular-nums">
+                      Custo M.: R$ {m.averageCost.toFixed(2)}
+                    </p>
+                  )}
                 </div>
-                {movements.map((m, i) => (
-                  <div key={m.id}>
-                    <div className="flex items-center py-2.5 px-1">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-800 truncate">
-                          {m.product?.name || 'Produto'}
-                        </p>
-                      </div>
-                      <span className="w-10 text-right text-sm text-zinc-600">{m.quantity}</span>
-                      <span className="w-16 text-right text-sm text-zinc-600 tabular-nums">
-                        R$ {m.unitPrice.toFixed(2)}
-                      </span>
-                      <span className="w-16 text-right text-xs text-amber-600 tabular-nums">
-                        R$ {(m.averageCost || 0).toFixed(2)}
-                      </span>
-                      <span className="w-20 text-right text-sm font-semibold text-zinc-800 tabular-nums">
-                        R$ {m.total.toFixed(2)}
-                      </span>
-                    </div>
-                    {i < movements.length - 1 && (
-                      <div className="border-b border-dashed border-zinc-200 mx-1" />
-                    )}
-                  </div>
-                ))}
-              </>
-            )}
+                {i < movements.length - 1 && (
+                  <div className="border-b border-dashed border-zinc-200 mx-1" />
+                )}
+              </div>
+            ))}
           </div>
 
           <div className="border-t-2 border-zinc-900 px-4 py-4">
@@ -1278,7 +1236,7 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
@@ -1373,32 +1331,24 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
 
                   {isExpanded && (
                     <div className="border-x border-b rounded-b-xl bg-white shadow-sm overflow-hidden">
-                      <div className="px-3.5 py-2 bg-zinc-50 border-b border-zinc-100">
-                        <div className="flex justify-between text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
-                          <span className="flex-1">Produto</span>
-                          <span className="w-10 text-right">Qtd</span>
-                          <span className="w-16 text-right">Unit.</span>
-                          {!isEntrada && <span className="w-16 text-right">Custo M.</span>}
-                          <span className={`w-[72px] text-right`}>Total</span>
-                        </div>
-                      </div>
                       {items.map((m) => (
-                        <div key={m.id} className="flex items-center px-3.5 py-2">
-                          <span className="flex-1 text-xs text-zinc-700 truncate">
+                        <div key={m.id} className="px-3.5 py-2 border-b border-zinc-50 last:border-b-0">
+                          <p className="text-xs text-zinc-700 truncate leading-tight">
                             {m.product?.name || 'Produto'}
-                          </span>
-                          <span className="w-10 text-right text-xs text-zinc-500">{m.quantity}</span>
-                          <span className="w-16 text-right text-xs text-zinc-500 tabular-nums">
-                            R$ {m.unitPrice.toFixed(2)}
-                          </span>
-                          {!isEntrada && (
-                            <span className="w-16 text-right text-[10px] text-amber-600 tabular-nums">
-                              R$ {(m.averageCost || 0).toFixed(2)}
-                            </span>
-                          )}
-                          <span className={`w-[72px] text-right text-xs font-semibold text-zinc-800 tabular-nums`}>
-                            R$ {m.total.toFixed(2)}
-                          </span>
+                          </p>
+                          <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap mt-0.5 text-[11px]">
+                            <span className="text-zinc-500">Qtd: <span className="font-medium text-zinc-700">{m.quantity}</span></span>
+                            <span className="text-zinc-300">·</span>
+                            <span className="text-zinc-500">Unit: <span className="font-medium text-zinc-700 tabular-nums">R$ {m.unitPrice.toFixed(2)}</span></span>
+                            {!isEntrada && m.averageCost !== null && m.averageCost > 0 && (
+                              <>
+                                <span className="text-zinc-300">·</span>
+                                <span className="text-amber-600 tabular-nums">Custo M.: R$ {(m.averageCost || 0).toFixed(2)}</span>
+                              </>
+                            )}
+                            <span className="text-zinc-300">·</span>
+                            <span className="font-bold text-zinc-800 tabular-nums">R$ {m.total.toFixed(2)}</span>
+                          </div>
                         </div>
                       ))}
                       <div className="px-3.5 py-2.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
@@ -1550,7 +1500,7 @@ function NfeScreen({ onBack }: { onBack: () => void }) {
   const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
       <header className="bg-gradient-to-br from-teal-600 to-teal-700 text-white px-4 py-4 pt-safe shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
@@ -1834,7 +1784,7 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
   const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
       <header className="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 py-4 pt-safe shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
@@ -1987,13 +1937,6 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
 
             {/* Products list with stock info */}
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1 flex">
-                <span className="flex-1">Produto</span>
-                <span className="w-14 text-right">Estoque</span>
-                <span className="w-12 text-right">Qtd</span>
-                <span className="w-20 text-right">V. Unit.</span>
-                <span className="w-20 text-right">Total</span>
-              </div>
               <div className="space-y-1.5">
                 {nfeData.produtos.map((p, i) => {
                   const stockInfo = getStockInfo(p.name)
@@ -2002,30 +1945,16 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
 
                   return (
                     <div key={i} className={`bg-white border rounded-lg p-2.5 text-xs ${willGoNegative ? 'border-red-300 bg-red-50' : 'border-zinc-200'}`}>
-                      <div className="flex items-center">
-                        <div className="flex-1 min-w-0 mr-2">
-                          <p className={`font-medium truncate leading-tight ${willGoNegative ? 'text-red-800' : 'text-zinc-800'}`}>{p.name}</p>
-                          {stockInfo && !stockInfo.exists && (
-                            <p className="text-[9px] text-amber-600 mt-0.5">Produto sera criado automaticamente</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className={`w-14 text-right tabular-nums font-medium ${willGoNegative ? 'text-red-600' : 'text-zinc-600'}`}>
-                            {stockInfo ? `${stockInfo.currentStock}` : '0'}
-                            {willGoNegative && (
-                              <span className="block text-[9px] text-red-500">
-                                {'>'} {newStock}
-                              </span>
-                            )}
-                          </span>
-                          <span className="w-12 text-right text-zinc-800 font-bold tabular-nums">{Math.round(p.quantity)}</span>
-                          <span className="w-20 text-right text-zinc-600 tabular-nums">
-                            R$ {p.unitCost.toFixed(2)}
-                          </span>
-                          <span className="w-20 text-right text-zinc-800 font-semibold tabular-nums">
-                            R$ {p.total.toFixed(2)}
-                          </span>
-                        </div>
+                      <p className={`font-medium truncate leading-tight ${willGoNegative ? 'text-red-800' : 'text-zinc-800'}`}>{p.name}</p>
+                      {stockInfo && !stockInfo.exists && (
+                        <p className="text-[9px] text-amber-600 mt-0.5">Produto sera criado automaticamente</p>
+                      )}
+                      <div className="flex items-center justify-between mt-1.5 gap-2">
+                        <span className={`text-[10px] tabular-nums ${willGoNegative ? 'text-red-600' : 'text-zinc-500'}`}>
+                          Est: {stockInfo ? stockInfo.currentStock : '0'}{willGoNegative && <span className="text-red-500"> {'>'} {newStock}</span>}
+                        </span>
+                        <span className="text-zinc-800 font-bold tabular-nums">Qtd: {Math.round(p.quantity)}</span>
+                        <span className="text-zinc-800 font-semibold tabular-nums">R$ {p.total.toFixed(2)}</span>
                       </div>
                     </div>
                   )
@@ -2157,7 +2086,7 @@ function ReportScreen({ onBack }: { onBack: () => void }) {
   const totalStockValue = rows.reduce((s, r) => s + r.stockValue, 0)
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>

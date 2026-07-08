@@ -115,8 +115,53 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
+  html, body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
+}
+
+/* Safe area insets for notched phones */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe-important {
+  padding-top: env(safe-area-inset-top, 0px) !important;
+}
+.pb-safe-important {
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+/* Bottom spacer for fixed-bottom safe area */
+.bottom-spacer-safe {
+  height: env(safe-area-inset-bottom, 0px);
+}
+/* Prevent text selection on interactive elements */
+button, [role="button"], a, input, textarea, select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Allow text selection in content areas */
+textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
