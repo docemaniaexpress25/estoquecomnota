@@ -65,13 +65,7 @@ export async function POST(request: Request) {
         movements.push({ ...movement, productName: product.name })
 
       } else {
-        if (product.stock < quantity) {
-          return NextResponse.json(
-            { error: `Estoque insuficiente para ${product.name}. Disponível: ${product.stock}` },
-            { status: 400 }
-          )
-        }
-
+        // SAIDA - allow negative stock
         const entries = await db.entry.findMany({
           where: { productId: item.productId },
         })
@@ -143,7 +137,7 @@ export async function DELETE(request: Request) {
 
         await db.product.update({
           where: { id: m.productId },
-          data: { stock: Math.max(0, revertStock) },
+          data: { stock: revertStock },
         })
       }
     }

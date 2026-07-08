@@ -146,11 +146,13 @@ function Dashboard({
   productCount,
   todayMovements,
   totalStockValue,
+  negativeStockCount,
 }: {
   onNavigate: (view: string) => void
   productCount: number
   todayMovements: number
   totalStockValue: number
+  negativeStockCount: number
 }) {
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -198,6 +200,28 @@ function Dashboard({
           </CardContent>
         </Card>
 
+        {negativeStockCount > 0 && (
+          <button
+            onClick={() => onNavigate('produtos')}
+            className="w-full border-0 shadow-sm bg-gradient-to-br from-red-500 to-red-600 text-white overflow-hidden relative rounded-2xl"
+          >
+            <CardContent className="p-4 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                  <Package className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-red-100 text-[10px] font-medium uppercase tracking-wider">Estoque Negativo</p>
+                  <p className="text-base font-bold mt-0.5">
+                    {negativeStockCount} produto{negativeStockCount !== 1 ? 's' : ''} sem estoque
+                  </p>
+                </div>
+                <ChevronDown className="w-5 h-5 text-white/50 rotate-[-90deg]" />
+              </div>
+            </CardContent>
+          </button>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => onNavigate('entrada')}
@@ -243,12 +267,21 @@ function Dashboard({
             <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Entradas e saídas</p>
           </button>
           <button
-            className="col-span-2 bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
             onClick={() => onNavigate('nfe')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
           >
             <div className="h-11 w-11 rounded-xl bg-teal-100 flex items-center justify-center mb-3 group-active:bg-teal-200 transition-colors"><FileUp className="w-5 h-5 text-teal-600" /></div>
-            <p className="font-semibold text-sm text-zinc-900">Entrada por NF-e</p>
-            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de Nota Fiscal eletrônica</p>
+            <p className="font-semibold text-sm text-zinc-900">Entrada NF-e</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de entrada</p>
+          </button>
+
+          <button
+            onClick={() => onNavigate('nfe_saida')}
+            className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 text-left transition-all active:scale-[0.97] hover:shadow-md group"
+          >
+            <div className="h-11 w-11 rounded-xl bg-orange-100 flex items-center justify-center mb-3 group-active:bg-orange-200 transition-colors"><ArrowUpFromLine className="w-5 h-5 text-orange-600" /></div>
+            <p className="font-semibold text-sm text-zinc-900">Saída NF-e</p>
+            <p className="text-xs text-zinc-400 mt-0.5 leading-tight">Importar XML de saída</p>
           </button>
         </div>
       </div>
@@ -415,20 +448,30 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
               <p className="text-center text-zinc-400 py-12 text-sm">Nenhum produto cadastrado</p>
             )}
             {products.map((p) => (
-              <Card key={p.id} className="border-0 shadow-sm overflow-hidden">
+              <Card key={p.id} className={`border-0 shadow-sm overflow-hidden ${p.stock < 0 ? 'ring-1 ring-red-300' : ''}`}>
                 <CardContent className="p-0">
                   <div className="flex">
-                    <div className={`w-1 shrink-0 ${p.stock > 0 ? 'bg-emerald-500' : 'bg-red-400'}`} />
+                    <div className={`w-1 shrink-0 ${p.stock > 0 ? 'bg-emerald-500' : p.stock === 0 ? 'bg-zinc-300' : 'bg-red-500'}`} />
                     <div className="flex-1 p-3.5 flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{p.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm truncate">{p.name}</p>
+                          {p.stock < 0 && (
+                            <Badge variant="secondary" className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0 border-0 shrink-0">
+                              NEGATIVO
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3 mt-1.5">
                           <span className="text-xs text-zinc-500">
                             Custo médio: R$ {p.averageCost.toFixed(2)}
                           </span>
                         </div>
-                        <span className={`text-xs font-medium mt-1 inline-block ${p.stock > 0 ? 'text-zinc-500' : 'text-red-500'}`}>
+                        <span className={`text-xs font-medium mt-1 inline-block ${p.stock > 0 ? 'text-zinc-500' : p.stock < 0 ? 'text-red-600 font-bold' : 'text-zinc-400'}`}>
                           Estoque: {p.stock} un.
+                          {p.stock < 0 && (
+                            <> <span className="text-red-400">— necessario repor {Math.abs(p.stock)} un.</span></>
+                          )}
                           {p.stock > 0 && p.averageCost > 0 && (
                             <> · Valor: R$ {(p.stock * p.averageCost).toFixed(2)}</>
                           )}
@@ -1301,7 +1344,7 @@ interface NfeData {
   valorProdutos: number
 }
 
-function NfeScreen({ onBack, onComplete }: { onBack: () => void; onComplete: (cupomId: string) => void }) {
+function NfeScreen({ onBack }: { onBack: () => void }) {
   const [nfeData, setNfeData] = useState<NfeData | null>(null)
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1344,30 +1387,6 @@ function NfeScreen({ onBack, onComplete }: { onBack: () => void; onComplete: (cu
     setLoading(false)
   }
 
-  const handleConfirm = async () => {
-    if (!nfeData) return
-
-    setImporting(true)
-    const formData = new FormData()
-    formData.append('xml', new Blob([fileName], { type: 'application/xml' }))
-    formData.append('action', 'confirm')
-
-    // Re-read the original file - we need to store it
-    const fileInput = document.createElement('input')
-    fileInput.type = 'file'
-    fileInput.accept = '.xml'
-
-    // Actually, we need to use the stored file ref
-    // Let's use a different approach - just re-submit with the same file name
-    // We'll use the fileInput approach
-    toast({ title: 'Reenviando arquivo para importacao...', variant: 'destructive' })
-    setImporting(false)
-    return
-
-    // Better approach: store the file in a ref
-  }
-
-  // Store file ref using a hidden approach
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const storedFileRef = React.useRef<File | null>(null)
 
@@ -1413,8 +1432,8 @@ function NfeScreen({ onBack, onComplete }: { onBack: () => void; onComplete: (cu
         return
       }
 
-      toast({ title: `NF-e importada! ${data.totalItens} itens` })
-      onComplete(data.cupomId)
+      toast({ title: `NF-e importada! ${data.totalItens} itens importados` })
+      onBack()
     } catch {
       toast({ title: 'Erro ao importar NF-e', variant: 'destructive' })
     }
@@ -1572,6 +1591,376 @@ function NfeScreen({ onBack, onComplete }: { onBack: () => void; onComplete: (cu
 }
 
 // ========================
+// NF-e Saida Screen
+// ========================
+interface NfeProductStock {
+  name: string
+  exists: boolean
+  currentStock: number
+  dbId?: string
+}
+
+function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
+  const [nfeData, setNfeData] = useState<NfeData | null>(null)
+  const [productsWithStock, setProductsWithStock] = useState<NfeProductStock[]>([])
+  const [fileName, setFileName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    totalItens: number
+    negativeStockCount: number
+    negativeItems: { name: string; previousStock: number; newStock: number }[]
+  } | null>(null)
+  const { toast } = useToast()
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const storedFileRef = React.useRef<File | null>(null)
+
+  const handleFile = async (file: File) => {
+    if (!file.name.endsWith('.xml')) {
+      toast({ title: 'Apenas arquivos .xml', variant: 'destructive' })
+      return
+    }
+
+    setFileName(file.name)
+    setLoading(true)
+    setNfeData(null)
+    setProductsWithStock([])
+    setImportResult(null)
+
+    const formData = new FormData()
+    formData.append('xml', file)
+    formData.append('action', 'parse')
+    formData.append('nfeType', 'saida')
+
+    try {
+      const res = await fetch('/api/nfe', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({ title: data.error || 'Erro ao ler NF-e', variant: 'destructive' })
+        setLoading(false)
+        return
+      }
+
+      setNfeData(data.data)
+      setProductsWithStock(data.productsWithStock || [])
+      toast({ title: `${data.data.produtos.length} produto(s) encontrados!` })
+    } catch {
+      toast({ title: 'Erro ao processar arquivo', variant: 'destructive' })
+    }
+    setLoading(false)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      storedFileRef.current = file
+      handleFile(file)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      storedFileRef.current = file
+      handleFile(file)
+    }
+  }
+
+  const handleConfirmImport = async () => {
+    if (!nfeData || !storedFileRef.current) {
+      toast({ title: 'Arquivo nao encontrado, faca upload novamente', variant: 'destructive' })
+      return
+    }
+
+    setImporting(true)
+    const formData = new FormData()
+    formData.append('xml', storedFileRef.current)
+    formData.append('action', 'confirm')
+    formData.append('nfeType', 'saida')
+
+    try {
+      const res = await fetch('/api/nfe', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({ title: data.error || 'Erro ao importar', variant: 'destructive' })
+        setImporting(false)
+        return
+      }
+
+      if (data.negativeStockCount > 0) {
+        toast({
+          title: `Saida importada! ${data.negativeStockCount} produto(s) com estoque negativo`,
+          description: 'Verifique os itens em vermelho abaixo',
+          variant: 'destructive',
+        })
+      } else {
+        toast({ title: `NF-e de saida importada! ${data.totalItens} itens` })
+      }
+
+      setImportResult({
+        totalItens: data.totalItens,
+        negativeStockCount: data.negativeStockCount,
+        negativeItems: data.negativeItems || [],
+      })
+    } catch {
+      toast({ title: 'Erro ao importar NF-e', variant: 'destructive' })
+    }
+    setImporting(false)
+  }
+
+  const getStockInfo = (productName: string) => {
+    return productsWithStock.find(p => p.name === productName)
+  }
+
+  const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
+
+  return (
+    <div className="min-h-screen bg-zinc-50 flex flex-col pb-safe">
+      <header className="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 py-4 pt-safe shrink-0">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
+            <X className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold">Saida por NF-e</h1>
+            <p className="text-[11px] opacity-70">Importar Nota Fiscal de saida</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="w-full px-4 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
+        {/* Upload area */}
+        {!nfeData && !importResult && (
+          <div
+            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+              dragOver ? 'border-orange-400 bg-orange-50' : 'border-zinc-300 bg-white hover:border-zinc-400'
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xml"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {loading ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-zinc-300 border-t-orange-500 rounded-full animate-spin" />
+                <p className="text-sm text-zinc-500">Lendo NF-e de saida...</p>
+              </div>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-3">
+                  <FileUp className="w-7 h-7 text-orange-600" />
+                </div>
+                <p className="font-semibold text-sm text-zinc-700">
+                  {dragOver ? 'Solte o arquivo aqui' : 'Toque para selecionar o XML'}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Arraste o XML da NF-e de saida ou toque para buscar
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Import Result Summary */}
+        {importResult && (
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${importResult.negativeStockCount > 0 ? 'bg-red-100' : 'bg-emerald-100'}`}>
+                  {importResult.negativeStockCount > 0
+                    ? <Package className="w-5 h-5 text-red-600" />
+                    : <Package className="w-5 h-5 text-emerald-600" />
+                  }
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-zinc-900">
+                    {importResult.totalItens} produto(s) saida registrada
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {importResult.negativeStockCount > 0
+                      ? `${importResult.negativeStockCount} com estoque negativo`
+                      : 'Todos com estoque suficiente'}
+                  </p>
+                </div>
+              </div>
+
+              {importResult.negativeItems.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-bold text-red-700 uppercase tracking-wide">Itens com estoque negativo</p>
+                  {importResult.negativeItems.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-red-800 font-medium truncate mr-2">{item.name}</span>
+                      <span className="text-red-600 font-bold tabular-nums shrink-0">
+                        {item.newStock} un.
+                      </span>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-red-500 pt-1">
+                    Estes itens precisam ser repostos. O estoque negativo indica saida sem estoque disponivel.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  onClick={onBack}
+                  className="flex-1 h-11 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-xl"
+                >
+                  Voltar ao Dashboard
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setNfeData(null); setProductsWithStock([]); setImportResult(null); setFileName('') }}
+                  className="h-11 rounded-xl"
+                >
+                  Importar outra
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* NF-e Data Preview */}
+        {nfeData && !importResult && (
+          <>
+            <Card className="border-0 shadow-sm overflow-hidden">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">Nota Fiscal de Saida</p>
+                    <p className="font-bold text-base text-zinc-900 mt-0.5">
+                      NF-e {nfeData.numero?.padStart(9, '0')}{nfeData.serie ? ` Serie ${nfeData.serie}` : ''}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs border-0 shrink-0 mt-3">
+                    {nfeData.dataEmissao}
+                  </Badge>
+                </div>
+                <div className="text-xs text-zinc-500 space-y-0.5">
+                  <p><span className="font-medium text-zinc-700">Emitente:</span> {nfeData.emitente.nome}</p>
+                  {nfeData.emitente.cnpj && <p><span className="font-medium text-zinc-700">CNPJ:</span> {nfeData.emitente.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}</p>}
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-zinc-400">Produtos</p>
+                    <p className="text-lg font-bold text-zinc-800">{nfeData.produtos.length}</p>
+                  </div>
+                  <div className="flex-1 bg-zinc-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-zinc-400">Itens total</p>
+                    <p className="text-lg font-bold text-zinc-800">{totalQtd}</p>
+                  </div>
+                  <div className="flex-1 bg-orange-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-orange-600">Valor NF</p>
+                    <p className="text-lg font-bold text-orange-700 tabular-nums">
+                      R$ {nfeData.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Products list with stock info */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1 flex">
+                <span className="flex-1">Produto</span>
+                <span className="w-14 text-right">Estoque</span>
+                <span className="w-12 text-right">Qtd</span>
+                <span className="w-20 text-right">V. Unit.</span>
+                <span className="w-20 text-right">Total</span>
+              </div>
+              <div className="space-y-1.5">
+                {nfeData.produtos.map((p, i) => {
+                  const stockInfo = getStockInfo(p.name)
+                  const willGoNegative = stockInfo && (stockInfo.currentStock - Math.round(p.quantity)) < 0
+                  const newStock = stockInfo ? stockInfo.currentStock - Math.round(p.quantity) : -Math.round(p.quantity)
+
+                  return (
+                    <div key={i} className={`bg-white border rounded-lg p-2.5 text-xs ${willGoNegative ? 'border-red-300 bg-red-50' : 'border-zinc-200'}`}>
+                      <div className="flex items-center">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className={`font-medium truncate leading-tight ${willGoNegative ? 'text-red-800' : 'text-zinc-800'}`}>{p.name}</p>
+                          {stockInfo && !stockInfo.exists && (
+                            <p className="text-[9px] text-amber-600 mt-0.5">Produto sera criado automaticamente</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`w-14 text-right tabular-nums font-medium ${willGoNegative ? 'text-red-600' : 'text-zinc-600'}`}>
+                            {stockInfo ? `${stockInfo.currentStock}` : '0'}
+                            {willGoNegative && (
+                              <span className="block text-[9px] text-red-500">
+                                {'>'} {newStock}
+                              </span>
+                            )}
+                          </span>
+                          <span className="w-12 text-right text-zinc-800 font-bold tabular-nums">{Math.round(p.quantity)}</span>
+                          <span className="w-20 text-right text-zinc-600 tabular-nums">
+                            R$ {p.unitCost.toFixed(2)}
+                          </span>
+                          <span className="w-20 text-right text-zinc-800 font-semibold tabular-nums">
+                            R$ {p.total.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2 shrink-0 pt-2">
+              {productsWithStock.some(s => s.exists && (s.currentStock - Math.round(nfeData.produtos.find(p => p.name === s.name)?.quantity || 0)) < 0) && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-red-600" />
+                  </div>
+                  <p className="text-xs text-red-700">
+                    <span className="font-bold">Atencao:</span> Alguns produtos ficarao com estoque negativo. A saida sera registrada mesmo assim.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={handleConfirmImport}
+                disabled={importing}
+                className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl"
+              >
+                {importing ? 'Importando...' : `Confirmar Saida de ${nfeData.produtos.length} produto(s)`}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setNfeData(null); setProductsWithStock([]); setFileName('') }}
+                className="w-full h-10 rounded-xl"
+              >
+                Enviar outro XML
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ========================
 // Main App
 // ========================
 export default function Home() {
@@ -1581,6 +1970,7 @@ export default function Home() {
   const [productCount, setProductCount] = useState(0)
   const [todayMovements, setTodayMovements] = useState(0)
   const [totalStockValue, setTotalStockValue] = useState(0)
+  const [negativeStockCount, setNegativeStockCount] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [, startTransition] = useTransition()
 
@@ -1605,10 +1995,13 @@ export default function Home() {
         return sum + (avgCost * p.stock)
       }, 0)
 
+      const negCount = products.filter(p => p.stock < 0).length
+
       startTransition(() => {
         setProductCount(count)
         setTodayMovements(todayMov)
         setTotalStockValue(stockVal)
+        setNegativeStockCount(negCount)
       })
     } catch {
       // silently fail
@@ -1651,6 +2044,7 @@ export default function Home() {
           productCount={productCount}
           todayMovements={todayMovements}
           totalStockValue={totalStockValue}
+          negativeStockCount={negativeStockCount}
         />
       )
 
@@ -1687,7 +2081,10 @@ export default function Home() {
       return <MovementsScreen onBack={handleBackToDashboard} />
 
     case 'nfe':
-      return <NfeScreen onBack={handleBackToDashboard} onComplete={handleMovementComplete} />
+      return <NfeScreen onBack={handleBackToDashboard} />
+
+    case 'nfe_saida':
+      return <NfeSaidaScreen onBack={handleBackToDashboard} />
 
     default:
       return null

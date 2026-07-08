@@ -175,12 +175,13 @@ function parseNfeXml(xmlString: string): NfeParsed {
   }
 }
 
-// POST: Parse and import NF-e XML
+// POST: Parse and import NF-e XML (entrada ou saida)
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const file = formData.get('xml') as File | null
     const action = formData.get('action') as string | null
+    const nfeType = (formData.get('nfeType') as string) || 'entrada'
 
     if (!file) {
       return NextResponse.json({ error: 'Arquivo XML é obrigatório' }, { status: 400 })
@@ -197,18 +198,149 @@ export async function POST(request: Request) {
 
     // If action is 'parse', just return the parsed data (preview mode)
     if (action === 'parse') {
-      return NextResponse.json({ action: 'parsed', data: nfe })
+      // For saida, check which products exist in the database and their current stock
+      if (nfeType === 'saida') {
+        const productsWithStock: { name: string; exists: boolean; currentStock: number; dbId?: string }[] = []
+
+        for (const item of nfe.produtos) {
+          const existing = await db.product.findFirst({
+            where: { name: item.name },
+          })
+          productsWithStock.push({
+            name: item.name,
+            exists: !!existing,
+            currentStock: existing ? existing.stock : 0,
+            dbId: existing?.id || undefined,
+          })
+        }
+
+        return NextResponse.json({
+          action: 'parsed',
+          nfeType: 'saida',
+          data: nfe,
+          productsWithStock,
+        })
+      }
+
+      return NextResponse.json({ action: 'parsed', nfeType: 'entrada', data: nfe })
     }
 
     // If action is 'confirm', import into database
     if (action === 'confirm') {
       const cupomId = randomUUID()
-      const fornecedor = nfe.emitente?.nome || nfe.emitente?.cnpj || 'NF-e Importada'
+      const results: {
+        productName: string
+        productId: string
+        isNew: boolean
+        quantity: number
+        unitCost: number
+        total: number
+        previousStock: number
+        newStock: number
+        wentNegative: boolean
+      }[] = []
 
-      const results = []
+      if (nfeType === 'saida') {
+        // NF-e de SAIDA: decrease stock
+        const cliente = nfe.destinatario?.nome || nfe.emitente?.nome || 'NF-e Saida Importada'
+
+        for (const item of nfe.produtos) {
+          if (item.quantity <= 0) continue
+
+          // Find existing product (must exist for saida)
+          let product = await db.product.findFirst({
+            where: { name: item.name },
+          })
+
+          if (!product) {
+            // Auto-create product with 0 stock for saida NF-e
+            product = await db.product.create({
+              data: { name: item.name },
+            })
+          }
+
+          const qty = Math.round(item.quantity)
+          const salePrice = item.unitCost // vUnCom is the unit price
+          const total = salePrice * qty
+
+          // Calculate average cost for profit tracking
+          const entries = await db.entry.findMany({
+            where: { productId: product.id },
+          })
+          let averageCost = 0
+          if (entries.length > 0) {
+            const totalEntryCost = entries.reduce((sum, e) => sum + e.total, 0)
+            const totalEntryQty = entries.reduce((sum, e) => sum + e.quantity, 0)
+            averageCost = totalEntryQty > 0 ? totalEntryCost / totalEntryQty : 0
+          }
+
+          const previousStock = product.stock
+          const newStock = previousStock - qty
+
+          // Create SAIDA movement
+          await db.movement.create({
+            data: {
+              type: 'SAIDA',
+              productId: product.id,
+              quantity: qty,
+              unitPrice: salePrice,
+              averageCost,
+              total,
+              cupomId,
+              clientName: cliente,
+            },
+          })
+
+          // Update stock (allow negative)
+          await db.product.update({
+            where: { id: product.id },
+            data: { stock: newStock },
+          })
+
+          results.push({
+            productName: item.name,
+            productId: product.id,
+            isNew: false,
+            quantity: qty,
+            unitCost: salePrice,
+            total,
+            previousStock,
+            newStock,
+            wentNegative: newStock < 0,
+          })
+        }
+
+        const negativeItems = results.filter(r => r.wentNegative)
+        const totalNegativo = negativeItems.reduce((sum, r) => sum + Math.abs(r.newStock), 0)
+
+        return NextResponse.json({
+          action: 'imported',
+          nfeType: 'saida',
+          cupomId,
+          cliente,
+          nfeNumero: nfe.numero,
+          nfeSerie: nfe.serie,
+          dataEmissao: nfe.dataEmissao,
+          totalItens: results.length,
+          valorTotal: nfe.valorTotal,
+          items: results,
+          negativeStockCount: negativeItems.length,
+          totalNegativo,
+          negativeItems: negativeItems.map(r => ({
+            name: r.productName,
+            previousStock: r.previousStock,
+            newStock: r.newStock,
+          })),
+        })
+      }
+
+      // NF-e de ENTRADA: increase stock
+      const fornecedor = nfe.emitente?.nome || nfe.emitente?.cnpj || 'NF-e Importada'
 
       for (const item of nfe.produtos) {
         if (item.quantity <= 0) continue
+
+        const wasNew = !await db.product.findFirst({ where: { name: item.name } })
 
         // Find or create product
         let product = await db.product.findFirst({
@@ -221,13 +353,14 @@ export async function POST(request: Request) {
           })
         }
 
-        const total = item.unitCost * item.quantity
+        const qty = Math.round(item.quantity)
+        const total = item.unitCost * qty
 
         // Create entry
         await db.entry.create({
           data: {
             productId: product.id,
-            quantity: Math.round(item.quantity),
+            quantity: qty,
             unitCost: item.unitCost,
             total,
             cupomId,
@@ -239,7 +372,7 @@ export async function POST(request: Request) {
           data: {
             type: 'ENTRADA',
             productId: product.id,
-            quantity: Math.round(item.quantity),
+            quantity: qty,
             unitPrice: item.unitCost,
             total,
             cupomId,
@@ -250,21 +383,25 @@ export async function POST(request: Request) {
         // Update stock
         await db.product.update({
           where: { id: product.id },
-          data: { stock: product.stock + Math.round(item.quantity) },
+          data: { stock: product.stock + qty },
         })
 
         results.push({
           productName: item.name,
           productId: product.id,
-          isNew: !product,
-          quantity: Math.round(item.quantity),
+          isNew: wasNew,
+          quantity: qty,
           unitCost: item.unitCost,
           total,
+          previousStock: product.stock,
+          newStock: product.stock + qty,
+          wentNegative: false,
         })
       }
 
       return NextResponse.json({
         action: 'imported',
+        nfeType: 'entrada',
         cupomId,
         fornecedor,
         nfeNumero: nfe.numero,
