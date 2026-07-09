@@ -405,6 +405,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
   const [stock, setStock] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const [, startTransition] = useTransition()
@@ -475,7 +476,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deletar este produto e todas suas entradas/movimentações?')) return
+    setDeleteConfirmId(null)
     try {
       const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -588,7 +589,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleEdit(p)}>
                           <Edit3 className="w-4 h-4 text-zinc-400" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleDelete(p.id)}>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => setDeleteConfirmId(p.id)}>
                           <Trash2 className="w-4 h-4 text-red-400" />
                         </Button>
                       </div>
@@ -599,6 +600,29 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
             ))}
           </div>
         </ScrollArea>
+
+        {/* Delete confirmation for products */}
+        {deleteConfirmId && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-red-200 p-4 pb-safe shadow-lg">
+            <p className="text-xs text-red-700 font-medium mb-3">
+              Deletar este produto e todas suas entradas/movimentacoes?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 h-10 rounded-xl text-sm font-medium text-zinc-600 bg-zinc-100 border border-zinc-200"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 h-10 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600"
+              >
+                Sim, deletar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -952,6 +976,7 @@ function CupomScreen({
   const [movements, setMovements] = useState<MovementItem[]>([])
   const [deleted, setDeleted] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -975,8 +1000,7 @@ function CupomScreen({
   const profit = totalGeral - totalCost
 
   const handleDelete = async () => {
-    if (!confirm(`Excluir esta ${movements[0]?.type === 'ENTRADA' ? 'entrada' : 'venda'}?\nO estoque será revertido automaticamente.`)) return
-
+    setShowDeleteConfirm(false)
     setDeleting(true)
     try {
       const res = await fetch(`/api/movements?cupomId=${cupomId}`, { method: 'DELETE' })
@@ -1160,16 +1184,39 @@ function CupomScreen({
           </Button>
         </div>
 
-        {!deleted && (
+        {!deleted && !showDeleteConfirm && (
           <Button
             variant="ghost"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={deleting}
             className="w-full h-11 text-red-500 hover:text-red-600 hover:bg-red-50 text-sm mt-2 rounded-xl"
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            {deleting ? 'Excluindo...' : 'Excluir esta movimentação'}
+            Excluir esta movimentacao
           </Button>
+        )}
+
+        {!deleted && showDeleteConfirm && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-2 space-y-3">
+            <p className="text-xs text-red-700 font-medium">
+              Excluir {movements[0]?.type === 'ENTRADA' ? 'entrada' : 'venda'} e reverter o estoque automaticamente?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-10 rounded-xl text-sm font-medium text-zinc-600 bg-white border border-zinc-200"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? 'Excluindo...' : 'Sim, excluir'}
+              </button>
+            </div>
+          </div>
         )}
 
         {deleted && (
@@ -1193,6 +1240,7 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
   const [movements, setMovements] = useState<MovementItem[]>([])
   const [filter, setFilter] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const [, startTransition] = useTransition()
@@ -1219,7 +1267,7 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
   }, {})
 
   const handleDelete = async (cupomIdVal: string, type: string) => {
-    if (!confirm(`Excluir esta ${type === 'ENTRADA' ? 'entrada' : 'venda'}?\nO estoque será revertido automaticamente.`)) return
+    setDeleteConfirmId(null)
 
     try {
       const res = await fetch(`/api/movements?cupomId=${cupomIdVal}`, { method: 'DELETE' })
@@ -1288,6 +1336,29 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
 
               return (
                 <div key={cupomId}>
+                  {/* Delete confirmation bar */}
+                  {deleteConfirmId === cupomId && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 flex items-center justify-between">
+                      <p className="text-xs text-red-700 font-medium">
+                        Excluir {isEntrada ? 'entrada' : 'venda'} e reverter estoque?
+                      </p>
+                      <div className="flex gap-2 shrink-0 ml-3">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null) }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 bg-white border border-zinc-200"
+                        >
+                          Nao
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(cupomId, items[0].type) }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600"
+                        >
+                          Sim, excluir
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     onClick={() => setExpandedId((prev) => prev === cupomId ? null : cupomId)}
                     className={`border rounded-xl p-3.5 transition-all cursor-pointer active:scale-[0.99] shadow-sm ${
@@ -1324,6 +1395,16 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteConfirmId(cupomId)
+                          }}
+                          className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                         <span className="font-bold text-sm tabular-nums mr-1">
                           R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
@@ -1361,7 +1442,7 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
                             Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(cupomId, items[0].type) }}
+                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(cupomId) }}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-red-500 hover:text-white hover:bg-red-500 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
