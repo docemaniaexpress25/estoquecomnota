@@ -122,7 +122,11 @@
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
   }
-  html, body {
+  html {
+    position: relative;
+    width: 100%;
+  }
+  body {
     overflow-x: hidden;
     position: relative;
     width: 100%;
