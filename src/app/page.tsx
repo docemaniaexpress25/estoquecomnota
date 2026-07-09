@@ -560,9 +560,10 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
                 <CardContent className="p-0">
                   <div className="flex">
                     <div className={`w-1 shrink-0 ${p.stock > 0 ? 'bg-emerald-500' : p.stock === 0 ? 'bg-zinc-300' : 'bg-red-500'}`} />
-                    <div className="flex-1 p-3.5 flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                    <div className="flex-1 p-3 space-y-1.5">
+                      {/* Row 1: name + action buttons */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           <p className="font-semibold text-sm truncate">{p.name}</p>
                           {p.stock < 0 && (
                             <Badge variant="secondary" className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0 border-0 shrink-0">
@@ -570,29 +571,40 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-xs text-zinc-500">
-                            Custo médio: R$ {p.averageCost.toFixed(2)}
-                          </span>
+                        <div className="flex shrink-0">
+                          <button
+                            onClick={() => handleEdit(p)}
+                            className="p-2.5 rounded-lg active:bg-zinc-100 transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4 text-zinc-400" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(p.id)}
+                            className="p-2.5 rounded-lg active:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-400" />
+                          </button>
                         </div>
-                        <span className={`text-xs font-medium mt-1 inline-block ${p.stock > 0 ? 'text-zinc-500' : p.stock < 0 ? 'text-red-600 font-bold' : 'text-zinc-400'}`}>
+                      </div>
+                      {/* Row 2: stock info */}
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className={`font-medium ${p.stock > 0 ? 'text-zinc-500' : p.stock < 0 ? 'text-red-600' : 'text-zinc-400'}`}>
                           Estoque: {p.stock} un.
-                          {p.stock < 0 && (
-                            <> <span className="text-red-400">— necessario repor {Math.abs(p.stock)} un.</span></>
-                          )}
-                          {p.stock > 0 && p.averageCost > 0 && (
-                            <> · Valor: R$ {(p.stock * p.averageCost).toFixed(2)}</>
-                          )}
                         </span>
+                        <span className="text-zinc-500">
+                          C.M.: R$ {p.averageCost.toFixed(2)}
+                        </span>
+                        {p.stock > 0 && p.averageCost > 0 && (
+                          <span className="text-zinc-400">
+                            Valor: R$ {(p.stock * p.averageCost).toFixed(2)}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex gap-0.5 ml-3">
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => handleEdit(p)}>
-                          <Edit3 className="w-4 h-4 text-zinc-400" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => setDeleteConfirmId(p.id)}>
-                          <Trash2 className="w-4 h-4 text-red-400" />
-                        </Button>
-                      </div>
+                      {p.stock < 0 && (
+                        <p className="text-[10px] text-red-400">
+                          necessario repor {Math.abs(p.stock)} un.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -1338,20 +1350,20 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
                 <div key={cupomId}>
                   {/* Delete confirmation bar */}
                   {deleteConfirmId === cupomId && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 flex items-center justify-between">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 space-y-2.5">
                       <p className="text-xs text-red-700 font-medium">
                         Excluir {isEntrada ? 'entrada' : 'venda'} e reverter estoque?
                       </p>
-                      <div className="flex gap-2 shrink-0 ml-3">
+                      <div className="flex gap-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null) }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 bg-white border border-zinc-200"
+                          className="flex-1 h-10 rounded-lg text-xs font-medium text-zinc-600 bg-white border border-zinc-200 active:bg-zinc-100"
                         >
-                          Nao
+                          Cancelar
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(cupomId, items[0].type) }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600"
+                          className="flex-1 h-10 rounded-lg text-xs font-medium text-white bg-red-500 active:bg-red-600"
                         >
                           Sim, excluir
                         </button>
@@ -1361,7 +1373,7 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
 
                   <div
                     onClick={() => setExpandedId((prev) => prev === cupomId ? null : cupomId)}
-                    className={`border rounded-xl p-3.5 transition-all cursor-pointer active:scale-[0.99] shadow-sm ${
+                    className={`border rounded-xl p-3 transition-all cursor-pointer active:scale-[0.99] shadow-sm ${
                       isExpanded
                         ? isEntrada
                           ? 'border-emerald-300 bg-emerald-50/50'
@@ -1369,43 +1381,42 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
                         : 'border-zinc-200 bg-white'
                     }`}
                   >
+                    {/* Row 1: badge + date + client */}
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${
                         isEntrada ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                       }`}>
                         {isEntrada ? 'ENTRADA' : 'VENDA'}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-zinc-400">{dateShort}</span>
-                          {client && (
-                            <>
-                              <span className="text-zinc-300">·</span>
-                              <span className={`text-xs font-medium truncate ${
-                                isEntrada ? 'text-emerald-600' : 'text-red-600'
-                              }`}>
-                                {client}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          {totalQtd} {totalQtd === 1 ? 'item' : 'itens'}
-                          {!isExpanded && ' · toque para detalhes'}
-                        </p>
-                      </div>
+                      <span className="text-xs text-zinc-400">{dateShort}</span>
+                      {client && (
+                        <>
+                          <span className="text-zinc-300">·</span>
+                          <span className={`text-xs font-medium truncate ${
+                            isEntrada ? 'text-emerald-600' : 'text-red-600'
+                          }`}>
+                            {client}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {/* Row 2: items count + price + trash + chevron */}
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-[11px] text-zinc-400">
+                        {totalQtd} {totalQtd === 1 ? 'item' : 'itens'}
+                        {!isExpanded && ' · toque para detalhes'}
+                      </p>
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             setDeleteConfirmId(cupomId)
                           }}
-                          className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Excluir"
+                          className="p-2 -mr-1 rounded-lg text-zinc-300 hover:text-red-500 active:text-red-600 active:bg-red-50 transition-colors"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5" />
                         </button>
-                        <span className="font-bold text-sm tabular-nums mr-1">
+                        <span className="font-bold text-sm tabular-nums">
                           R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                         <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
