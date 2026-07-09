@@ -219,7 +219,7 @@ function Dashboard({
   const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8 pb-safe">
       {/* Header */}
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-5 pt-safe pb-5">
         <div className="flex items-center justify-between">
@@ -497,7 +497,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8 pb-safe">
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
@@ -739,7 +739,7 @@ function MovementScreen({
     : { active: 'bg-red-50 border-red-300', btn: 'bg-red-500 hover:bg-red-600 text-white', badge: 'bg-red-500/15 text-red-700' }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
+    <div className="h-dvh overflow-hidden bg-zinc-50 flex flex-col">
       <header className={`text-white px-4 py-4 pt-safe shrink-0 ${
         isEntrada
           ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
@@ -817,54 +817,45 @@ function MovementScreen({
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isEntrada ? (
-                      <div className="shrink-0">
-                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo (R$)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0,00"
-                          value={costPrices[p.id] || ''}
-                          onChange={(e) => setCost(p.id, e.target.value)}
-                          className="w-16 text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-right tabular-nums h-8"
-                        />
-                      </div>
-                    ) : (
-                      <div className="shrink-0">
-                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Venda (R$)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0,00"
-                          value={salePrices[p.id] || ''}
-                          onChange={(e) => setSale(p.id, e.target.value)}
-                          className="w-16 text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-red-400 text-right tabular-nums h-8"
-                        />
-                      </div>
-                    )}
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="flex items-end gap-2 flex-1 min-w-0">
+                      {isEntrada ? (
+                        <div className="shrink-0">
+                          <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo (R$)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0,00"
+                            value={costPrices[p.id] || ''}
+                            onChange={(e) => setCost(p.id, e.target.value)}
+                            className="w-16 text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-right tabular-nums h-9"
+                          />
+                        </div>
+                      ) : (
+                        <div className="shrink-0">
+                          <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Venda (R$)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0,00"
+                            value={salePrices[p.id] || ''}
+                            onChange={(e) => setSale(p.id, e.target.value)}
+                            className="w-16 text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-red-400 text-right tabular-nums h-9"
+                          />
+                        </div>
+                      )}
 
-                    {!isEntrada && avgCost > 0 && (
-                      <div className="shrink-0">
-                        <label className="text-[9px] text-zinc-400 font-medium block mb-0.5">Custo médio</label>
-                        <span className="text-[10px] text-amber-600 font-medium tabular-nums flex items-center h-8">
-                          R$ {avgCost.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
+                      {!isEntrada && avgCost > 0 && (
+                        <div className="shrink-0 pb-0.5">
+                          <p className="text-[9px] text-zinc-400 font-medium leading-none">C.M.</p>
+                          <p className="text-[10px] text-amber-600 font-bold tabular-nums leading-tight mt-0.5">
+                            R$ {avgCost.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                    <div className="flex-1 min-w-0" />
-
-                    {isActive && (
-                      <span className="text-xs font-bold text-zinc-700 shrink-0 tabular-nums">
-                        R$ {(isEntrada
-                          ? (parseFloat(costPrices[p.id] || '0') * qty)
-                          : (parseFloat(salePrices[p.id] || '0') * qty)
-                        ).toFixed(2)}
-                      </span>
-                    )}
-
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => adjustQty(p.id, -1)}
                         disabled={qty <= 0}
@@ -900,6 +891,18 @@ function MovementScreen({
                       </button>
                     </div>
                   </div>
+
+                  {isActive && (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100">
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wide font-medium">Subtotal</span>
+                      <span className="text-sm font-bold text-zinc-800 tabular-nums">
+                        R$ {(isEntrada
+                          ? (parseFloat(costPrices[p.id] || '0') * qty)
+                          : (parseFloat(salePrices[p.id] || '0') * qty)
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -907,7 +910,7 @@ function MovementScreen({
         </div>
 
         {selectedItems.length > 0 && (
-          <div className="bg-white border border-zinc-200 shadow-lg rounded-2xl p-4 space-y-3 shrink-0 mt-2">
+          <div className="bg-white border border-zinc-200 shadow-lg rounded-2xl p-4 space-y-3 shrink-0 mt-2 mb-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">{selectedItems.length} produto{selectedItems.length !== 1 ? 's' : ''} · {totalItems} {totalItems === 1 ? 'item' : 'itens'}</span>
               <span className="font-bold text-lg tabular-nums">
@@ -1035,7 +1038,7 @@ function CupomScreen({
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-100 pb-safe">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-100 pb-8 pb-safe">
       <header className={`text-white px-4 py-4 pt-safe ${
         isEntrada
           ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
@@ -1236,7 +1239,7 @@ function MovementsScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8 pb-safe">
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
@@ -1500,7 +1503,7 @@ function NfeScreen({ onBack }: { onBack: () => void }) {
   const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
+    <div className="h-dvh overflow-hidden bg-zinc-50 flex flex-col">
       <header className="bg-gradient-to-br from-teal-600 to-teal-700 text-white px-4 py-4 pt-safe shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
@@ -1595,36 +1598,30 @@ function NfeScreen({ onBack }: { onBack: () => void }) {
             </Card>
 
             {/* Products list */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 px-1 flex">
-                <span className="flex-1">Produto</span>
-                <span className="w-12 text-right">Qtd</span>
-                <span className="w-14 text-right">Unit.</span>
-                <span className="w-14 text-right">Un.</span>
-                <span className="w-20 text-right">Total</span>
-              </div>
-              <div className="space-y-1.5">
+            <div className="flex-1 min-h-0 overflow-y-auto pb-2">
+              <div className="space-y-2">
                 {nfeData.produtos.map((p, i) => (
-                  <Card key={i} className="border-0 shadow-sm">
-                    <CardContent className="p-3">
-                      <p className="text-sm font-medium text-zinc-800 leading-tight mb-1.5">{p.name}</p>
-                      <div className="flex items-center text-xs">
-                        <span className="flex-1 text-zinc-400 truncate">
-                          {p.ncm ? `NCM: ${p.ncm}` : ''}{p.cfop ? ` · CFOP: ${p.cfop}` : ''}
-                        </span>
-                        <span className="w-12 text-right text-zinc-600">{p.quantity}</span>
-                        <span className="w-14 text-right text-zinc-600 tabular-nums">R$ {p.unitCost.toFixed(2)}</span>
-                        <span className="w-14 text-right text-zinc-400">{p.unit}</span>
-                        <span className="w-20 text-right font-semibold text-zinc-800 tabular-nums">R$ {p.total.toFixed(2)}</span>
+                  <div key={i} className="bg-white border border-zinc-200 rounded-xl p-3 shadow-sm">
+                    <p className="text-sm font-medium text-zinc-800 leading-tight">{p.name}</p>
+                    {(p.ncm || p.cfop) && (
+                      <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
+                        {p.ncm ? `NCM: ${p.ncm}` : ''}{p.ncm && p.cfop ? ' · ' : ''}{p.cfop ? `CFOP: ${p.cfop}` : ''}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-zinc-600 font-medium">{p.quantity} {p.unit}</span>
+                        <span className="text-zinc-400 tabular-nums">R$ {p.unitCost.toFixed(2)}/un.</span>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <span className="text-sm font-bold text-zinc-800 tabular-nums">R$ {p.total.toFixed(2)}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
 
             {/* Action buttons */}
-            <div className="space-y-2 shrink-0 mt-2">
+            <div className="space-y-2 shrink-0 mt-2 pb-[env(safe-area-inset-bottom)]">
               <Button
                 onClick={handleConfirmImport}
                 disabled={importing}
@@ -1784,7 +1781,7 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
   const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
+    <div className="h-dvh overflow-hidden bg-zinc-50 flex flex-col">
       <header className="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 py-4 pt-safe shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
@@ -1962,7 +1959,7 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            <div className="space-y-2 shrink-0 pt-2">
+            <div className="space-y-2 shrink-0 pt-2 pb-[env(safe-area-inset-bottom)]">
               {productsWithStock.some(s => s.exists && (s.currentStock - Math.round(nfeData.produtos.find(p => p.name === s.name)?.quantity || 0)) < 0) && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
@@ -2086,7 +2083,7 @@ function ReportScreen({ onBack }: { onBack: () => void }) {
   const totalStockValue = rows.reduce((s, r) => s + r.stockValue, 0)
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 pb-8 pb-safe">
       <header className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white px-4 py-4 pt-safe">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 -ml-2" onClick={onBack}>
