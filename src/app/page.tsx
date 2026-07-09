@@ -739,7 +739,7 @@ function MovementScreen({
     : { active: 'bg-red-50 border-red-300', btn: 'bg-red-500 hover:bg-red-600 text-white', badge: 'bg-red-500/15 text-red-700' }
 
   return (
-    <div className="h-dvh overflow-hidden bg-zinc-50 flex flex-col">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
       <header className={`text-white px-4 py-4 pt-safe shrink-0 ${
         isEntrada
           ? 'bg-gradient-to-br from-emerald-600 to-emerald-700'
@@ -910,7 +910,7 @@ function MovementScreen({
         </div>
 
         {selectedItems.length > 0 && (
-          <div className="bg-white border border-zinc-200 shadow-lg rounded-2xl p-4 space-y-3 shrink-0 mt-2 mb-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="bg-white border border-zinc-200 shadow-lg rounded-2xl p-4 space-y-3 shrink-0 mt-2">
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">{selectedItems.length} produto{selectedItems.length !== 1 ? 's' : ''} · {totalItems} {totalItems === 1 ? 'item' : 'itens'}</span>
               <span className="font-bold text-lg tabular-nums">
@@ -1503,7 +1503,7 @@ function NfeScreen({ onBack }: { onBack: () => void }) {
   const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
 
   return (
-    <div className="h-dvh overflow-hidden bg-zinc-50 flex flex-col">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
       <header className="bg-gradient-to-br from-teal-600 to-teal-700 text-white px-4 py-4 pt-safe shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
@@ -1621,7 +1621,7 @@ function NfeScreen({ onBack }: { onBack: () => void }) {
             </div>
 
             {/* Action buttons */}
-            <div className="space-y-2 shrink-0 mt-2 pb-[env(safe-area-inset-bottom)]">
+            <div className="space-y-2 shrink-0 mt-2">
               <Button
                 onClick={handleConfirmImport}
                 disabled={importing}
@@ -1781,7 +1781,7 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
   const totalQtd = nfeData?.produtos.reduce((s, p) => s + p.quantity, 0) || 0
 
   return (
-    <div className="h-dvh overflow-hidden bg-zinc-50 flex flex-col">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50 flex flex-col pb-safe">
       <header className="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 py-4 pt-safe shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 -ml-2" onClick={onBack}>
@@ -1959,7 +1959,7 @@ function NfeSaidaScreen({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            <div className="space-y-2 shrink-0 pt-2 pb-[env(safe-area-inset-bottom)]">
+            <div className="space-y-2 shrink-0 pt-2">
               {productsWithStock.some(s => s.exists && (s.currentStock - Math.round(nfeData.produtos.find(p => p.name === s.name)?.quantity || 0)) < 0) && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
