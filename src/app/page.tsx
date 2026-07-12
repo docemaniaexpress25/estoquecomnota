@@ -556,59 +556,55 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
               <p className="text-center text-zinc-400 py-12 text-sm">Nenhum produto cadastrado</p>
             )}
             {products.map((p) => (
-              <Card key={p.id} className={`border-0 shadow-sm overflow-hidden ${p.stock < 0 ? 'ring-1 ring-red-300' : ''}`}>
-                <CardContent className="p-0">
-                  <div className="flex">
-                    <div className={`w-1 shrink-0 ${p.stock > 0 ? 'bg-emerald-500' : p.stock === 0 ? 'bg-zinc-300' : 'bg-red-500'}`} />
-                    <div className="flex-1 p-3 space-y-1.5">
-                      {/* Row 1: name + action buttons */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <p className="font-semibold text-sm truncate">{p.name}</p>
-                          {p.stock < 0 && (
-                            <Badge variant="secondary" className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0 border-0 shrink-0">
-                              NEGATIVO
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex shrink-0">
-                          <button
-                            onClick={() => handleEdit(p)}
-                            className="p-2.5 rounded-lg active:bg-zinc-100 transition-colors"
-                          >
-                            <Edit3 className="w-4 h-4 text-zinc-400" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(p.id)}
-                            className="p-2.5 rounded-lg active:bg-red-50 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-400" />
-                          </button>
-                        </div>
-                      </div>
-                      {/* Row 2: stock info */}
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className={`font-medium ${p.stock > 0 ? 'text-zinc-500' : p.stock < 0 ? 'text-red-600' : 'text-zinc-400'}`}>
-                          Estoque: {p.stock} un.
+              <div key={p.id} className={`bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden ${p.stock < 0 ? 'ring-1 ring-red-300 border-red-200' : ''}`}>
+                {/* Color strip */}
+                <div className={`h-1 ${p.stock > 0 ? 'bg-emerald-500' : p.stock === 0 ? 'bg-zinc-300' : 'bg-red-500'}`} />
+
+                {/* Product info */}
+                <div className="px-3.5 pt-3 pb-2">
+                  <p className="font-semibold text-sm leading-tight">{p.name}</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className={`text-xs font-medium ${p.stock > 0 ? 'text-zinc-500' : p.stock < 0 ? 'text-red-600' : 'text-zinc-400'}`}>
+                      Estoque: {p.stock} un.
+                    </span>
+                    <span className="text-zinc-300">|</span>
+                    <span className="text-xs text-zinc-500">
+                      C.M.: R$ {p.averageCost.toFixed(2)}
+                    </span>
+                    {p.stock > 0 && p.averageCost > 0 && (
+                      <>
+                        <span className="text-zinc-300">|</span>
+                        <span className="text-xs text-zinc-400">
+                          Valor: R$ {(p.stock * p.averageCost).toFixed(2)}
                         </span>
-                        <span className="text-zinc-500">
-                          C.M.: R$ {p.averageCost.toFixed(2)}
-                        </span>
-                        {p.stock > 0 && p.averageCost > 0 && (
-                          <span className="text-zinc-400">
-                            Valor: R$ {(p.stock * p.averageCost).toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                      {p.stock < 0 && (
-                        <p className="text-[10px] text-red-400">
-                          necessario repor {Math.abs(p.stock)} un.
-                        </p>
-                      )}
-                    </div>
+                      </>
+                    )}
+                    {p.stock < 0 && (
+                      <span className="text-[10px] text-red-500 font-medium">
+                        Repor {Math.abs(p.stock)} un.
+                      </span>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                {/* Action buttons bar */}
+                <div className="flex border-t border-zinc-100 divide-x divide-zinc-100">
+                  <button
+                    onClick={() => handleEdit(p)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-zinc-500 active:bg-zinc-50 transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmId(p.id)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-red-500 active:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Excluir
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </div>
