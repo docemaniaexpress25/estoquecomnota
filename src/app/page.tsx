@@ -550,7 +550,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
           </CardContent>
         </Card>
 
-        <ScrollArea className="max-h-[60vh]">
+        <div>
           <div className="space-y-2.5">
             {products.length === 0 && (
               <p className="text-center text-zinc-400 py-12 text-sm">Nenhum produto cadastrado</p>
@@ -611,7 +611,7 @@ function ProductsScreen({ onBack }: { onBack: () => void }) {
               </Card>
             ))}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Delete confirmation for products */}
         {deleteConfirmId && (
